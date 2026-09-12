@@ -1,0 +1,9 @@
+# Respaldos descargados desde la app (tienen datos de sueldos)
+pagos-*.json
+pagos-*.csv
+
+# Basura del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+.netlify/

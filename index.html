@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pagos semanales — Panadería Avenida</title>
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --tinta:#1C2B36;
+  --papel:#FBF9F4;
+  --azulejo:#2F6F7E;
+  --azulejo-claro:#DCE9EB;
+  --manteca:#E4A93C;
+  --verde:#3E7D5A;
+  --alerta:#A8412C;
+  --gris:#79828B;
+  --linea:#E2DDD3;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--papel);color:var(--tinta);
+  font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%;
+}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-0.01em}
+input,select,button{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.envoltorio{max-width:760px;margin:0 auto;padding:0 1rem 3rem}
+
+/* ============================================================
+   ENCABEZADO
+   ============================================================ */
+.tope{background:var(--azulejo);color:#fff;padding:1.2rem 0 1.3rem}
+.tope h1{font-size:1.4rem}
+.tope p{margin:.2rem 0 0;font-size:.85rem;color:#CFE2E6}
+.tope-patron{
+  height:8px;
+  background:repeating-linear-gradient(45deg,#DCE9EB 0 9px,var(--manteca) 9px 18px);
+  opacity:.85;
+}
+
+/* ============================================================
+   SEMANA
+   ============================================================ */
+.semana{
+  display:flex;align-items:center;justify-content:space-between;gap:.8rem;
+  background:#fff;border:1px solid var(--linea);border-radius:8px;
+  padding:.7rem .8rem;margin:1.1rem 0;
+}
+.semana strong{font-size:.98rem}
+.semana small{display:block;font-size:.76rem;color:var(--gris);font-weight:400}
+.semana button{
+  width:34px;height:34px;border-radius:17px;border:1px solid var(--linea);
+  background:#fff;color:var(--azulejo);font-size:1.2rem;line-height:1;cursor:pointer;flex:0 0 auto;
+}
+.semana .centro{text-align:center;flex:1}
+
+/* ============================================================
+   RESUMEN
+   ============================================================ */
+.resumen{
+  background:var(--tinta);color:#fff;border-radius:8px;
+  padding:1rem;margin-bottom:1.1rem;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;
+}
+.resumen div{min-width:0}
+.resumen .valor{font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.resumen .rotulo{font-size:.74rem;color:#A9B6C0}
+.resumen .falta .valor{color:var(--manteca)}
+.resumen .listo .valor{color:#8FD3AE}
+
+/* ============================================================
+   EMPLEADOS
+   ============================================================ */
+.ficha{
+  background:#fff;border:1px solid var(--linea);border-radius:8px;
+  padding:.9rem;margin-bottom:.7rem;
+}
+.ficha.saldada{border-color:#B7D7C5;background:#F6FBF8}
+.ficha-tope{display:flex;align-items:baseline;justify-content:space-between;gap:.8rem}
+.ficha-tope h3{font-size:1rem}
+.ficha-saldo{font-size:.95rem;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ficha-saldo.ok{color:var(--verde)}
+.ficha-saldo.exceso{color:var(--alerta)}
+
+.barra{height:7px;background:#EFEBE3;border-radius:4px;margin:.6rem 0 .45rem;overflow:hidden}
+.barra i{display:block;height:100%;background:var(--azulejo);border-radius:4px;transition:width .18s}
+.barra i.completa{background:var(--verde)}
+.barra i.exceso{background:var(--alerta)}
+.ficha-pie{display:flex;justify-content:space-between;font-size:.79rem;color:var(--gris)}
+
+.movimientos{margin:.7rem 0 0;padding:.6rem 0 0;border-top:1px solid var(--linea)}
+.mov{display:flex;align-items:center;gap:.6rem;padding:.3rem 0;font-size:.85rem}
+.mov .fecha{color:var(--gris);font-size:.78rem;width:76px;flex:0 0 auto}
+.mov .monto{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:500}
+.mov .medio{font-size:.72rem;color:var(--gris);border:1px solid var(--linea);border-radius:10px;padding:0 .4rem}
+.mov .borrar{
+  background:none;border:none;color:var(--gris);cursor:pointer;
+  font-size:1rem;line-height:1;padding:0 .2rem;flex:0 0 auto;
+}
+.mov .borrar:hover{color:var(--alerta)}
+.vacio{font-size:.82rem;color:var(--gris);padding:.3rem 0}
+
+.cargar{display:flex;gap:.4rem;margin-top:.7rem}
+.cargar input{
+  flex:1;min-width:0;border:1px solid var(--linea);border-radius:5px;
+  padding:.5rem;font-variant-numeric:tabular-nums;
+}
+.cargar select{border:1px solid var(--linea);border-radius:5px;padding:.5rem;background:#fff}
+.cargar button{
+  background:var(--azulejo);color:#fff;border:none;border-radius:5px;
+  padding:.5rem .8rem;cursor:pointer;font-weight:600;
+}
+.rapidos{display:flex;gap:.35rem;margin-top:.45rem;flex-wrap:wrap}
+.rapidos button{
+  background:#fff;border:1px solid var(--linea);color:var(--azulejo);
+  border-radius:14px;padding:.2rem .6rem;font-size:.78rem;cursor:pointer;
+}
+.rapidos button:hover{background:var(--azulejo-claro)}
+
+/* ============================================================
+   PLANTEL
+   ============================================================ */
+.seccion{margin-top:2rem}
+.seccion > h2{font-size:1.02rem;color:var(--azulejo);margin-bottom:.15rem}
+.seccion > p{margin:0 0 .8rem;font-size:.83rem;color:var(--gris)}
+/* ============================================================
+   MÉTRICAS
+   ============================================================ */
+.ventas-fila{
+  display:flex;align-items:center;gap:.7rem;
+  background:#fff;border:1px solid var(--linea);border-radius:6px;
+  padding:.55rem .7rem;margin-bottom:.9rem;
+}
+.ventas-fila label{flex:1;font-size:.87rem}
+.ventas-fila input{
+  width:140px;border:1px solid var(--linea);border-radius:5px;
+  padding:.45rem;text-align:right;font-variant-numeric:tabular-nums;
+}
+.tarjetas{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.1rem}
+.tarjeta{background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.8rem}
+.tarjeta .valor{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.tarjeta .rotulo{font-size:.76rem;color:var(--gris);margin-top:.1rem}
+.tarjeta .pie{font-size:.74rem;color:var(--gris);margin-top:.35rem}
+.tarjeta.alta .valor{color:var(--alerta)}
+.tarjeta.buena .valor{color:var(--verde)}
+
+.grafico{background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.9rem}
+.grafico h3{font-size:.92rem;margin-bottom:.7rem}
+.grafico svg{width:100%;height:auto;display:block}
+.graf-pie{font-size:.76rem;color:var(--gris);margin:.6rem 0 0}
+
+.plantel-fila{
+  display:flex;gap:.4rem;align-items:center;
+  background:#fff;border:1px solid var(--linea);border-radius:6px;
+  padding:.5rem;margin-bottom:.45rem;
+}
+.plantel-fila input[type="text"]{flex:1;min-width:0;border:1px solid var(--linea);border-radius:5px;padding:.4rem}
+.plantel-fila input[type="number"]{width:112px;border:1px solid var(--linea);border-radius:5px;padding:.4rem;text-align:right;font-variant-numeric:tabular-nums}
+.plantel-fila button{background:none;border:none;color:var(--gris);cursor:pointer;font-size:1.05rem}
+.plantel-fila button:hover{color:var(--alerta)}
+
+.acciones{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+.acciones button{
+  background:#fff;border:1px solid var(--azulejo);color:var(--azulejo);
+  border-radius:6px;padding:.55rem .85rem;cursor:pointer;
+}
+.acciones button.lleno{background:var(--azulejo);color:#fff}
+.acciones button:hover{opacity:.9}
+
+.nota{
+  background:#FCF3DD;border:1px solid var(--manteca);border-radius:8px;
+  padding:.8rem .9rem;font-size:.83rem;margin-top:1.6rem;
+}
+.nota.roja{background:#FBEDE9;border-color:#E0AA9C}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);outline-offset:1px}
+</style>
+</head>
+<body>
+
+<header class="tope">
+  <div class="envoltorio"><h1>Pagos semanales</h1><p>Panadería Avenida</p></div>
+</header>
+<div class="tope-patron"></div>
+
+<div class="envoltorio">
+
+  <div class="semana">
+    <button id="sem-antes" aria-label="Semana anterior">‹</button>
+    <div class="centro">
+      <strong id="sem-rango"></strong>
+      <small id="sem-nota"></small>
+    </div>
+    <button id="sem-despues" aria-label="Semana siguiente">›</button>
+  </div>
+
+  <div class="resumen">
+    <div><div class="valor num" id="r-objetivo">$0</div><div class="rotulo">A pagar</div></div>
+    <div class="listo"><div class="valor num" id="r-pagado">$0</div><div class="rotulo">Entregado</div></div>
+    <div class="falta"><div class="valor num" id="r-falta">$0</div><div class="rotulo">Falta</div></div>
+  </div>
+
+  <div id="fichas"></div>
+
+  <section class="seccion">
+    <h2>Números</h2>
+    <p>Cargá lo que facturaste en la semana y el ratio se calcula solo. Es el único número que no se distorsiona con la inflación.</p>
+
+    <div class="ventas-fila">
+      <label for="ventas">Facturación de esta semana</label>
+      <input type="number" id="ventas" placeholder="0" step="10000" inputmode="decimal">
+    </div>
+
+    <div class="tarjetas" id="tarjetas"></div>
+
+    <div class="grafico">
+      <h3 id="graf-titulo">Costo de personal por semana</h3>
+      <div id="graf"></div>
+      <p class="graf-pie" id="graf-pie"></p>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <h2>Plantel</h2>
+    <p>El sueldo semanal queda congelado en cada semana al registrar el primer pago, así editarlo no te cambia el historial.</p>
+    <div id="plantel"></div>
+    <div class="acciones">
+      <button id="b-sumar">Agregar empleado</button>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <h2>Respaldo</h2>
+    <p>Los datos quedan en este navegador. Descargá el respaldo cada tanto, sobre todo antes de cambiar de teléfono.</p>
+    <div class="acciones">
+      <button class="lleno" id="b-bajar">Descargar respaldo</button>
+      <button id="b-subir">Cargar respaldo</button>
+      <button id="b-planilla">Exportar a planilla (CSV)</button>
+    </div>
+    <input type="file" id="archivo" accept="application/json" hidden>
+  </section>
+
+  <div class="nota" id="aviso-persistencia" hidden></div>
+
+  <div class="nota roja">
+    Este registro es control interno: no reemplaza el recibo de sueldo.
+    Los pagos a cuenta tienen que figurar en el recibo del período y, según el
+    art. 130 de la LCT, los adelantos no pueden superar el 50% de la remuneración.
+    Confirmá con tu contador cómo se documentan estas entregas.
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   PERSISTENCIA — localStorage con respaldo en memoria
+   ============================================================ */
+
+const CLAVE = "panaderia-pagos-v1";
+let PERSISTE = true;
+
+let datos = {
+  empleados: [
+    { id:"e1", nombre:"", semanal:0 }
+  ],
+  pagos: [],        // { id, empId, fecha, monto, medio, nota }
+  ventas: {},       // { "2026-W37": 5400000 }  facturación semanal
+  objetivos: {}     // { "2026-W37": { e1: 320000 } }  congelado por semana
+};
+
+function cargar(){
+  try {
+    const crudo = localStorage.getItem(CLAVE);
+    if (crudo) datos = JSON.parse(crudo);
+  } catch (e){
+    PERSISTE = false;
+  }
+}
+
+function guardar(){
+  try {
+    localStorage.setItem(CLAVE, JSON.stringify(datos));
+  } catch (e){
+    PERSISTE = false;
+    avisoPersistencia();
+  }
+}
+
+function avisoPersistencia(){
+  if (PERSISTE) return;
+  const n = document.getElementById("aviso-persistencia");
+  n.hidden = false;
+  n.textContent = "Este navegador no está guardando los datos (pasa en la vista previa " +
+    "y en modo incógnito). Podés probar la herramienta igual, pero descargá el respaldo " +
+    "antes de cerrar o vas a perder lo cargado.";
+}
+
+/* ============================================================
+   FECHAS — semana de lunes a domingo
+   ============================================================ */
+
+const MESES = ["enero","febrero","marzo","abril","mayo","junio",
+               "julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const desdeISO = s => new Date(s + "T12:00");
+
+function lunesDe(d){
+  const x = new Date(d);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  x.setHours(12,0,0,0);
+  return x;
+}
+
+function claveSemana(lunes){
+  const j = new Date(lunes);
+  j.setDate(j.getDate() + 3);                       // jueves de esa semana
+  const inicio = new Date(j.getFullYear(), 0, 4);
+  const n = 1 + Math.round(((j - inicio) / 86400000 - 3 + ((inicio.getDay() + 6) % 7)) / 7);
+  return `${j.getFullYear()}-W${String(n).padStart(2,"0")}`;
+}
+
+let lunesVista = lunesDe(new Date());
+
+const pesos = v => "$" + Math.round(v).toLocaleString("es-AR");
+const $ = id => document.getElementById(id);
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+/* ============================================================
+   OBJETIVOS CONGELADOS
+   ============================================================ */
+
+function objetivoDe(emp, clave){
+  const s = datos.objetivos[clave];
+  if (s && s[emp.id] != null) return s[emp.id];
+  return emp.semanal || 0;
+}
+
+function congelar(clave){
+  if (!datos.objetivos[clave]) datos.objetivos[clave] = {};
+  datos.empleados.forEach(e => {
+    if (datos.objetivos[clave][e.id] == null) datos.objetivos[clave][e.id] = e.semanal || 0;
+  });
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+
+function pagosDe(empId, lunes){
+  const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+  return datos.pagos
+    .filter(p => p.empId === empId)
+    .filter(p => { const d = desdeISO(p.fecha); return d >= lunes && d <= domingo; })
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+function render(){
+  const clave = claveSemana(lunesVista);
+  const domingo = new Date(lunesVista); domingo.setDate(domingo.getDate() + 6);
+
+  $("sem-rango").textContent =
+    `${lunesVista.getDate()} de ${MESES[lunesVista.getMonth()]} al ${domingo.getDate()} de ${MESES[domingo.getMonth()]}`;
+  const estaSemana = claveSemana(lunesDe(new Date())) === clave;
+  $("sem-nota").textContent = estaSemana ? "Semana en curso" : clave;
+  $("sem-despues").disabled = false;
+
+  let totObj = 0, totPag = 0;
+
+  $("fichas").innerHTML = datos.empleados.map(emp => {
+    const objetivo = objetivoDe(emp, clave);
+    const movs = pagosDe(emp.id, lunesVista);
+    const pagado = movs.reduce((a, p) => a + p.monto, 0);
+    const saldo = objetivo - pagado;
+    totObj += objetivo; totPag += pagado;
+
+    const pct = objetivo > 0 ? Math.min(100, (pagado / objetivo) * 100) : 0;
+    const exceso = pagado > objetivo && objetivo > 0;
+    const listo = objetivo > 0 && pagado >= objetivo;
+
+    return `
+    <div class="ficha ${listo && !exceso ? "saldada" : ""}" data-emp="${emp.id}">
+      <div class="ficha-tope">
+        <h3>${emp.nombre || "Sin nombre"}</h3>
+        <span class="ficha-saldo ${exceso ? "exceso" : listo ? "ok" : ""}">
+          ${exceso ? "de más " + pesos(pagado - objetivo) : listo ? "saldado" : "falta " + pesos(saldo)}
+        </span>
+      </div>
+      <div class="barra"><i class="${exceso ? "exceso" : listo ? "completa" : ""}" style="width:${pct}%"></i></div>
+      <div class="ficha-pie">
+        <span>${pesos(pagado)} entregado</span>
+        <span>de ${pesos(objetivo)}</span>
+      </div>
+
+      <div class="movimientos">
+        ${movs.length ? movs.map(p => `
+          <div class="mov">
+            <span class="fecha">${desdeISO(p.fecha).toLocaleDateString("es-AR",{weekday:"short",day:"numeric"})}</span>
+            <span class="medio">${p.medio}</span>
+            <span class="monto">${pesos(p.monto)}</span>
+            <button class="borrar" data-borrar="${p.id}" aria-label="Borrar pago">×</button>
+          </div>`).join("") : `<div class="vacio">Sin pagos esta semana.</div>`}
+      </div>
+
+      <div class="cargar">
+        <input type="number" data-monto placeholder="Monto" inputmode="decimal" min="0" step="1000">
+        <select data-medio>
+          <option>transferencia</option>
+          <option>efectivo</option>
+        </select>
+        <button data-pagar>Registrar</button>
+      </div>
+      ${saldo > 0 ? `<div class="rapidos">
+        <button data-rapido="${saldo}">Saldar ${pesos(saldo)}</button>
+        ${objetivo ? `<button data-rapido="${Math.round(objetivo/2)}">Mitad</button>` : ""}
+      </div>` : ""}
+    </div>`;
+  }).join("") || `<div class="vacio">Agregá empleados abajo para empezar.</div>`;
+
+  $("r-objetivo").textContent = pesos(totObj);
+  $("r-pagado").textContent = pesos(totPag);
+  $("r-falta").textContent = pesos(Math.max(0, totObj - totPag));
+
+  $("plantel").innerHTML = datos.empleados.map(e => `
+    <div class="plantel-fila" data-emp="${e.id}">
+      <input type="text" data-nombre value="${e.nombre.replace(/"/g,"&quot;")}" placeholder="Nombre">
+      <input type="number" data-semanal value="${e.semanal || ""}" placeholder="Semanal" step="1000" inputmode="decimal">
+      <button data-quitar aria-label="Quitar">×</button>
+    </div>`).join("");
+
+  $("ventas").value = (datos.ventas && datos.ventas[clave]) || "";
+  pintarMetricas();
+}
+
+/* ============================================================
+   MÉTRICAS
+   ============================================================ */
+
+function semanasCon(n){
+  const lista = [];
+  let l = new Date(lunesVista);
+  for (let i = 0; i < n; i++){
+    lista.unshift({ lunes:new Date(l), clave:claveSemana(l) });
+    l = new Date(l.getTime() - 7 * 86400000);
+  }
+  return lista;
+}
+
+function resumenSemana(lunes){
+  const clave = claveSemana(lunes);
+  const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+  const dentro = datos.pagos.filter(p => {
+    const d = desdeISO(p.fecha);
+    return d >= lunes && d <= domingo;
+  });
+
+  const total = dentro.reduce((a, p) => a + p.monto, 0);
+  const objetivo = datos.empleados.reduce((a, e) => a + objetivoDe(e, clave), 0);
+
+  // día de la semana en que se completó cada empleado (1 = lunes)
+  const cierres = [];
+  let saldados = 0, conObjetivo = 0;
+  datos.empleados.forEach(e => {
+    const obj = objetivoDe(e, clave);
+    if (!obj) return;
+    conObjetivo++;
+    const movs = pagosDe(e.id, lunes);
+    let acum = 0, cierre = null;
+    movs.forEach(p => {
+      acum += p.monto;
+      if (cierre === null && acum >= obj) cierre = ((desdeISO(p.fecha).getDay() + 6) % 7) + 1;
+    });
+    if (cierre !== null){ saldados++; cierres.push(cierre); }
+  });
+
+  return {
+    clave, total, objetivo,
+    entregas: dentro.length,
+    empleados: conObjetivo,
+    saldados,
+    cierre: cierres.length ? cierres.reduce((a, b) => a + b, 0) / cierres.length : null,
+    ventas: datos.ventas ? (datos.ventas[clave] || 0) : 0
+  };
+}
+
+const DIAS = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
+
+function pintarMetricas(){
+  const serie = semanasCon(12).map(s => resumenSemana(s.lunes));
+  const act = serie[serie.length - 1];
+
+  // --- tarjetas ---
+  const conCierre = serie.filter(s => s.cierre !== null);
+  const cierrePromedio = conCierre.length
+    ? conCierre.reduce((a, s) => a + s.cierre, 0) / conCierre.length : null;
+
+  const conMov = serie.filter(s => s.entregas > 0);
+  const entregasPorEmp = conMov.length
+    ? conMov.reduce((a, s) => a + (s.empleados ? s.entregas / s.empleados : 0), 0) / conMov.length : 0;
+
+  const empSemana = serie.reduce((a, s) => a + s.empleados, 0);
+  const saldadosTot = serie.reduce((a, s) => a + s.saldados, 0);
+  const cumplimiento = empSemana ? (saldadosTot / empSemana) * 100 : 0;
+
+  const ratio = act.ventas > 0 ? (act.total / act.ventas) * 100 : null;
+
+  const t = [];
+  t.push(`<div class="tarjeta ${ratio === null ? "" : ratio > 35 ? "alta" : ratio < 28 ? "buena" : ""}">
+    <div class="valor">${ratio === null ? "—" : ratio.toFixed(1) + "%"}</div>
+    <div class="rotulo">Nómina sobre ventas</div>
+    <div class="pie">${ratio === null ? "Cargá la facturación arriba" : "Referencia del rubro: 25% a 35%"}</div>
+  </div>`);
+
+  t.push(`<div class="tarjeta">
+    <div class="valor">${cierrePromedio === null ? "—" : DIAS[Math.round(cierrePromedio) - 1]}</div>
+    <div class="rotulo">Día en que saldás</div>
+    <div class="pie">${cierrePromedio === null ? "Todavía sin semanas saldadas" : "Promedio de las últimas 12 semanas"}</div>
+  </div>`);
+
+  t.push(`<div class="tarjeta">
+    <div class="valor">${entregasPorEmp ? entregasPorEmp.toFixed(1) : "—"}</div>
+    <div class="rotulo">Entregas por empleado</div>
+    <div class="pie">${entregasPorEmp > 3 ? "Muchas transferencias por semana" : "Por semana"}</div>
+  </div>`);
+
+  t.push(`<div class="tarjeta ${cumplimiento >= 95 ? "buena" : cumplimiento < 80 ? "alta" : ""}">
+    <div class="valor">${empSemana ? cumplimiento.toFixed(0) + "%" : "—"}</div>
+    <div class="rotulo">Semanas cerradas al día</div>
+    <div class="pie">Sin saldo pendiente al domingo</div>
+  </div>`);
+
+  $("tarjetas").innerHTML = t.join("");
+
+  // --- gráfico ---
+  const hayVentas = serie.some(s => s.ventas > 0);
+  $("graf-titulo").textContent = hayVentas
+    ? "Nómina sobre ventas, por semana"
+    : "Costo de personal por semana";
+
+  const valores = serie.map(s => hayVentas
+    ? (s.ventas > 0 ? (s.total / s.ventas) * 100 : 0)
+    : s.total);
+
+  const tope = Math.max(...valores, 1);
+  const W = 340, H = 130, base = H - 18, ancho = W / serie.length;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img">`;
+
+  if (hayVentas){                              // franja de referencia 25-35%
+    const y1 = base - (35 / tope) * (base - 6);
+    const y2 = base - (25 / tope) * (base - 6);
+    svg += `<rect x="0" y="${y1.toFixed(1)}" width="${W}" height="${(y2 - y1).toFixed(1)}" fill="#EAF3F1"/>`;
+  }
+
+  serie.forEach((s, i) => {
+    const v = valores[i];
+    const alto = v > 0 ? Math.max(2, (v / tope) * (base - 6)) : 0;
+    const x = i * ancho + ancho * 0.18;
+    const w = ancho * 0.64;
+    const ultimo = i === serie.length - 1;
+    const color = v === 0 ? "#EFEBE3" : ultimo ? "#E4A93C" : "#2F6F7E";
+    svg += `<rect x="${x.toFixed(1)}" y="${(base - alto).toFixed(1)}" width="${w.toFixed(1)}" height="${alto.toFixed(1)}" rx="2" fill="${color}"/>`;
+    if (i % 2 === 0 || ultimo){
+      const d = s.clave.slice(-3).replace("W", "s");
+      svg += `<text x="${(x + w / 2).toFixed(1)}" y="${H - 5}" font-size="8" fill="#79828B" text-anchor="middle" font-family="sans-serif">${d}</text>`;
+    }
+  });
+
+  svg += `<line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="#E2DDD3" stroke-width="1"/></svg>`;
+  $("graf").innerHTML = svg;
+
+  $("graf-pie").textContent = hayVentas
+    ? `La franja marca el rango de referencia del rubro (25% a 35%). Tope del eje: ${tope.toFixed(0)}%.`
+    : `Montos nominales: con inflación no son comparables entre semanas lejanas. Cargá la facturación para ver el ratio, que sí lo es.`;
+}
+
+$("ventas").addEventListener("input", e => {
+  if (!datos.ventas) datos.ventas = {};
+  const v = parseFloat(e.target.value) || 0;
+  const clave = claveSemana(lunesVista);
+  if (v > 0) datos.ventas[clave] = v; else delete datos.ventas[clave];
+  guardar();
+  pintarMetricas();
+});
+
+/* ============================================================
+   ACCIONES
+   ============================================================ */
+
+function registrar(empId, monto, medio){
+  if (!(monto > 0)) return;
+  const clave = claveSemana(lunesVista);
+  congelar(clave);
+  // se imputa al día de hoy si la semana es la actual; si no, al lunes de esa semana
+  const hoy = new Date();
+  const fecha = claveSemana(lunesDe(hoy)) === clave ? iso(hoy) : iso(lunesVista);
+  datos.pagos.push({ id:uid(), empId, fecha, monto, medio });
+  guardar(); render();
+}
+
+$("fichas").addEventListener("click", e => {
+  const ficha = e.target.closest("[data-emp]");
+  if (!ficha) return;
+  const empId = ficha.dataset.emp;
+
+  if (e.target.matches("[data-pagar]")){
+    const campo = ficha.querySelector("[data-monto]");
+    registrar(empId, parseFloat(campo.value), ficha.querySelector("[data-medio]").value);
+    campo.value = "";
+  }
+  if (e.target.matches("[data-rapido]")){
+    registrar(empId, parseFloat(e.target.dataset.rapido), ficha.querySelector("[data-medio]").value);
+  }
+  if (e.target.matches("[data-borrar]")){
+    datos.pagos = datos.pagos.filter(p => p.id !== e.target.dataset.borrar);
+    guardar(); render();
+  }
+});
+
+$("fichas").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.matches("[data-monto]")){
+    e.target.closest("[data-emp]").querySelector("[data-pagar]").click();
+  }
+});
+
+$("plantel").addEventListener("input", e => {
+  const fila = e.target.closest("[data-emp]");
+  const emp = datos.empleados.find(x => x.id === fila.dataset.emp);
+  if (e.target.matches("[data-nombre]")) emp.nombre = e.target.value;
+  if (e.target.matches("[data-semanal]")) emp.semanal = parseFloat(e.target.value) || 0;
+  guardar();
+  // actualiza fichas sin re-renderizar el plantel (se perdería el foco)
+  const clave = claveSemana(lunesVista);
+  if (datos.objetivos[clave]) delete datos.objetivos[clave][emp.id];
+  const fichas = $("fichas");
+  const scroll = window.scrollY;
+  render(); window.scrollTo(0, scroll);
+  fila.querySelector(e.target.matches("[data-nombre]") ? "[data-nombre]" : "[data-semanal]").focus();
+});
+
+$("plantel").addEventListener("click", e => {
+  if (!e.target.matches("[data-quitar]")) return;
+  const id = e.target.closest("[data-emp]").dataset.emp;
+  const emp = datos.empleados.find(x => x.id === id);
+  if (!confirm(`¿Quitar a ${emp.nombre || "este empleado"}? Se borran también sus pagos registrados.`)) return;
+  datos.empleados = datos.empleados.filter(x => x.id !== id);
+  datos.pagos = datos.pagos.filter(p => p.empId !== id);
+  guardar(); render();
+});
+
+$("b-sumar").addEventListener("click", () => {
+  datos.empleados.push({ id:uid(), nombre:"", semanal:0 });
+  guardar(); render();
+  const ultimo = $("plantel").lastElementChild;
+  if (ultimo) ultimo.querySelector("[data-nombre]").focus();
+});
+
+$("sem-antes").addEventListener("click", () => {
+  lunesVista = new Date(lunesVista.getTime() - 7 * 86400000);
+  render();
+});
+$("sem-despues").addEventListener("click", () => {
+  lunesVista = new Date(lunesVista.getTime() + 7 * 86400000);
+  render();
+});
+
+/* ============================================================
+   RESPALDO
+   ============================================================ */
+
+function bajar(nombre, contenido, tipo){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([contenido], { type:tipo }));
+  a.download = nombre;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+$("b-bajar").addEventListener("click", () => {
+  bajar(`pagos-${iso(new Date())}.json`, JSON.stringify(datos, null, 2), "application/json");
+});
+
+$("b-subir").addEventListener("click", () => $("archivo").click());
+$("archivo").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const lector = new FileReader();
+  lector.onload = () => {
+    try {
+      const nuevo = JSON.parse(lector.result);
+      if (!nuevo.empleados || !nuevo.pagos) throw new Error("formato");
+      if (!confirm("Esto reemplaza lo que tenés cargado ahora. ¿Seguimos?")) return;
+      datos = nuevo; guardar(); render();
+    } catch (err){
+      alert("El archivo no tiene el formato esperado. Probá con un respaldo descargado desde acá.");
+    }
+  };
+  lector.readAsText(f);
+  e.target.value = "";
+});
+
+$("b-planilla").addEventListener("click", () => {
+  const filas = [["semana","fecha","empleado","monto","medio","objetivo_semanal"]];
+  datos.pagos
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    .forEach(p => {
+      const emp = datos.empleados.find(e => e.id === p.empId);
+      const clave = claveSemana(lunesDe(desdeISO(p.fecha)));
+      filas.push([clave, p.fecha, emp ? emp.nombre : "(borrado)", p.monto, p.medio,
+                  emp ? objetivoDe(emp, clave) : ""]);
+    });
+  const csv = filas.map(f => f.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  bajar(`pagos-${iso(new Date())}.csv`, "\uFEFF" + csv, "text/csv;charset=utf-8");
+});
+
+/* ============================================================
+   ARRANQUE
+   ============================================================ */
+
+cargar();
+guardar();          // detecta si el navegador bloquea el almacenamiento
+avisoPersistencia();
+render();
+</script>
+</body>
+</html>

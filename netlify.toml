@@ -1,0 +1,12 @@
+# Sitio estático: no hay build, se publica la carpeta tal cual.
+[build]
+  publish = "."
+  command = ""
+
+# El HTML no se cachea, así cuando subimos un cambio lo ven al recargar.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
