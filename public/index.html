@@ -159,7 +159,14 @@ input,select,button{font:inherit;color:inherit}
 }
 .plantel-fila input[type="text"]{flex:1;min-width:0;border:1px solid var(--linea);border-radius:5px;padding:.4rem}
 .plantel-fila input[type="number"]{width:112px;border:1px solid var(--linea);border-radius:5px;padding:.4rem;text-align:right;font-variant-numeric:tabular-nums}
-.plantel-fila button{background:none;border:none;color:var(--gris);cursor:pointer;font-size:1.05rem}
+.plantel-fila button{background:none;border:none;color:var(--gris);cursor:pointer;font-size:1.05rem;width:1.4rem;padding:0}
+.plantel-fila.encabezado{
+  background:none;border-color:transparent;padding:0 .5rem .1rem;margin-bottom:.1rem;
+  font-size:.72rem;color:var(--gris);
+}
+.plantel-fila.encabezado span:nth-child(1){flex:1;min-width:0}
+.plantel-fila.encabezado span:nth-child(2){width:112px;text-align:right}
+.plantel-fila.encabezado span:nth-child(3){width:1.4rem}
 .plantel-fila button:hover{color:var(--alerta)}
 
 .acciones{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
@@ -241,7 +248,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
 
   <section class="seccion">
     <h2>Plantel</h2>
-    <p>El sueldo semanal queda congelado en cada semana al registrar el primer pago, así editarlo no te cambia el historial.</p>
+    <p>Lo que le pagás por semana a cada uno. De acá sale el "falta" de cada ficha. El monto queda congelado en cada semana al registrar el primer pago, así editarlo no te cambia el historial.</p>
     <div id="plantel"></div>
     <div class="acciones">
       <button id="b-sumar">Agregar empleado</button>
@@ -490,6 +497,7 @@ function render(){
     const saldo = objetivo - pagado;
     totObj += objetivo; totPag += pagado;
 
+    const sinSueldo = objetivo <= 0;
     const pct = objetivo > 0 ? Math.min(100, (pagado / objetivo) * 100) : 0;
     const exceso = pagado > objetivo && objetivo > 0;
     const listo = objetivo > 0 && pagado >= objetivo;
@@ -499,13 +507,13 @@ function render(){
       <div class="ficha-tope">
         <h3>${emp.nombre || "Sin nombre"}</h3>
         <span class="ficha-saldo ${exceso ? "exceso" : listo ? "ok" : ""}">
-          ${exceso ? "de más " + pesos(pagado - objetivo) : listo ? "saldado" : "falta " + pesos(saldo)}
+          ${sinSueldo ? "" : exceso ? "de más " + pesos(pagado - objetivo) : listo ? "saldado" : "falta " + pesos(saldo)}
         </span>
       </div>
       <div class="barra"><i class="${exceso ? "exceso" : listo ? "completa" : ""}" style="width:${pct}%"></i></div>
       <div class="ficha-pie">
         <span>${pesos(pagado)} entregado</span>
-        <span>de ${pesos(objetivo)}</span>
+        <span>${sinSueldo ? "falta cargarle el sueldo semanal en Plantel" : "de " + pesos(objetivo)}</span>
       </div>
 
       <div class="movimientos">
@@ -537,10 +545,13 @@ function render(){
   $("r-pagado").textContent = pesos(totPag);
   $("r-falta").textContent = pesos(Math.max(0, totObj - totPag));
 
-  $("plantel").innerHTML = datos.empleados.map(e => `
+  $("plantel").innerHTML = (datos.empleados.length
+    ? `<div class="plantel-fila encabezado"><span>nombre</span><span>sueldo por semana</span><span></span></div>`
+    : "") + datos.empleados.map(e => `
     <div class="plantel-fila" data-emp="${e.id}">
       <input type="text" data-nombre value="${e.nombre.replace(/"/g,"&quot;")}" placeholder="Nombre">
-      <input type="number" data-semanal value="${e.semanal || ""}" placeholder="Semanal" step="1000" inputmode="decimal">
+      <input type="number" data-semanal value="${e.semanal || ""}" placeholder="$ por semana"
+             step="1000" inputmode="decimal" aria-label="Sueldo por semana de ${e.nombre || "este empleado"}">
       <button data-quitar aria-label="Quitar">×</button>
     </div>`).join("");
 
