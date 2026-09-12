@@ -131,16 +131,14 @@ input,select,button{font:inherit;color:inherit}
 /* ============================================================
    MÉTRICAS
    ============================================================ */
-.ventas-fila{
-  display:flex;align-items:center;gap:.7rem;
-  background:#fff;border:1px solid var(--linea);border-radius:6px;
-  padding:.55rem .7rem;margin-bottom:.9rem;
+.factura{
+  background:#fff;border:1px solid var(--linea);border-radius:8px;
+  padding:.85rem .9rem;margin-bottom:1.1rem;
 }
-.ventas-fila label{flex:1;font-size:.87rem}
-.ventas-fila input{
-  width:140px;border:1px solid var(--linea);border-radius:5px;
-  padding:.45rem;text-align:right;font-variant-numeric:tabular-nums;
-}
+.factura .total{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;font-size:.87rem}
+.factura .total b{font-size:1.25rem;font-variant-numeric:tabular-nums}
+.factura .movimientos{margin-top:.5rem}
+.factura .cargar{margin-top:.6rem}
 .tarjetas{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.1rem}
 .tarjeta{background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.8rem}
 .tarjeta .valor{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
@@ -228,12 +226,9 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
 
   <section class="seccion">
     <h2>Números</h2>
-    <p>Cargá lo que facturaste en la semana y el ratio se calcula solo. Es el único número que no se distorsiona con la inflación.</p>
+    <p>Al cierre de cada turno cargás el monto y listo: la semana se suma sola. Con eso sale el ratio de nómina sobre ventas, que es el único número que no se distorsiona con la inflación.</p>
 
-    <div class="ventas-fila">
-      <label for="ventas">Facturación de esta semana</label>
-      <input type="number" id="ventas" placeholder="0" step="10000" inputmode="decimal">
-    </div>
+    <div class="factura" id="factura"></div>
 
     <div class="tarjetas" id="tarjetas"></div>
 
@@ -293,7 +288,8 @@ let datos = {
     { id:"e1", nombre:"", semanal:0 }
   ],
   pagos: [],        // { id, empId, fecha, monto, medio, nota }
-  ventas: {},       // { "2026-W37": 5400000 }  facturación semanal
+  turnos: {},       // { "2026-09-08": { m:120000, t:90000, n:60000 } }  cierre de cada turno
+  ventas: {},       // { "2026-W37": 5400000 }  total semanal cargado a mano (antes de los turnos)
   objetivos: {}     // { "2026-W37": { e1: 320000 } }  congelado por semana
 };
 
@@ -371,6 +367,97 @@ function congelar(clave){
     if (!s || s[e.id] == null) op({ t:"obj=", clave, empId:e.id, valor:e.semanal || 0 });
   });
 }
+
+/* ============================================================
+   FACTURACIÓN POR TURNO
+   Se carga el cierre de cada turno y la semana se suma sola.
+   Si una semana no tiene turnos cargados, se usa el total que
+   se haya escrito a mano antes de que existiera esta pantalla.
+   ============================================================ */
+
+const TURNOS = [["m","mañana"],["t","tarde"]];
+
+function diasDe(lunes){
+  const l = [];
+  for (let i = 0; i < 7; i++){
+    const d = new Date(lunes); d.setDate(d.getDate() + i); l.push(d);
+  }
+  return l;
+}
+
+function ventasDia(fecha){
+  const d = datos.turnos[fecha];
+  return d ? Object.keys(d).reduce((a, k) => a + (d[k] || 0), 0) : 0;
+}
+
+function ventasSemana(lunes, clave){
+  const total = diasDe(lunes).reduce((a, d) => a + ventasDia(iso(d)), 0);
+  return total || (datos.ventas ? datos.ventas[clave] || 0 : 0);
+}
+
+function pintarFactura(){
+  const dias = diasDe(lunesVista);
+  const filas = [];
+  let semana = 0;
+
+  dias.forEach((d, i) => {
+    const f = iso(d), dia = datos.turnos[f] || {};
+    TURNOS.forEach(([k, nombre]) => {
+      if (dia[k] == null) return;
+      semana += dia[k];
+      filas.push(`<div class="mov">
+        <span class="fecha">${DIAS[i].slice(0,3)} ${d.getDate()}</span>
+        <span class="medio">${nombre}</span>
+        <span class="monto">${pesos(dia[k])}</span>
+        <button class="borrar" data-quitar="${f}:${k}" aria-label="Borrar el turno ${nombre} del ${DIAS[i]} ${d.getDate()}">×</button>
+      </div>`);
+    });
+  });
+
+  const aMano = datos.ventas ? datos.ventas[claveSemana(lunesVista)] || 0 : 0;
+
+  $("factura").innerHTML = `
+    <div class="total"><span>Facturación de la semana</span><b class="num">${pesos(semana || aMano)}</b></div>
+    <div class="movimientos">
+      ${filas.length ? filas.join("") : `<div class="vacio">Sin turnos cargados esta semana.</div>`}
+    </div>
+    <div class="cargar">
+      <input type="number" id="fact-monto" placeholder="Monto" inputmode="decimal" min="0" step="1000">
+      <select id="fact-turno">${TURNOS.map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select>
+      <button id="fact-guardar">Guardar</button>
+    </div>`;
+}
+
+// se imputa al día de hoy si la semana es la actual; si no, al lunes de esa semana
+function guardarTurno(){
+  const campo = $("fact-monto");
+  const monto = parseFloat(campo.value) || 0;
+  if (!(monto > 0)) return;
+
+  const clave = claveSemana(lunesVista);
+  const hoy = new Date();
+  const fecha = claveSemana(lunesDe(hoy)) === clave ? iso(hoy) : iso(lunesVista);
+
+  op({ t:"turno=", fecha, turno:$("fact-turno").value, valor:monto });
+  campo.value = "";
+  pintarFactura();
+  pintarMetricas();
+  $("fact-monto").focus();
+}
+
+$("factura").addEventListener("click", e => {
+  if (e.target.id === "fact-guardar") guardarTurno();
+  if (e.target.matches("[data-quitar]")){
+    const [fecha, turno] = e.target.dataset.quitar.split(":");
+    op({ t:"turno=", fecha, turno, valor:null });
+    pintarFactura();
+    pintarMetricas();
+  }
+});
+
+$("factura").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.id === "fact-monto") guardarTurno();
+});
 
 /* ============================================================
    RENDER
@@ -457,7 +544,7 @@ function render(){
       <button data-quitar aria-label="Quitar">×</button>
     </div>`).join("");
 
-  $("ventas").value = (datos.ventas && datos.ventas[clave]) || "";
+  pintarFactura();
   pintarMetricas();
 }
 
@@ -508,7 +595,7 @@ function resumenSemana(lunes){
     empleados: conObjetivo,
     saldados,
     cierre: cierres.length ? cierres.reduce((a, b) => a + b, 0) / cierres.length : null,
-    ventas: datos.ventas ? (datos.ventas[clave] || 0) : 0
+    ventas: ventasSemana(lunes, clave)
   };
 }
 
@@ -602,12 +689,6 @@ function pintarMetricas(){
     ? `La franja marca el rango de referencia del rubro (25% a 35%). Tope del eje: ${tope.toFixed(0)}%.`
     : `Montos nominales: con inflación no son comparables entre semanas lejanas. Cargá la facturación para ver el ratio, que sí lo es.`;
 }
-
-$("ventas").addEventListener("input", e => {
-  const v = parseFloat(e.target.value) || 0;
-  op({ t:"ventas=", clave:claveSemana(lunesVista), valor: v > 0 ? v : null });
-  pintarMetricas();
-});
 
 /* ============================================================
    ACCIONES
@@ -785,6 +866,7 @@ function normalizar(d){
   return {
     empleados: Array.isArray(d.empleados) ? d.empleados : [],
     pagos:     Array.isArray(d.pagos)     ? d.pagos     : [],
+    turnos:    d.turnos    && typeof d.turnos    === "object" ? d.turnos    : {},
     ventas:    d.ventas    && typeof d.ventas    === "object" ? d.ventas    : {},
     objetivos: d.objetivos && typeof d.objetivos === "object" ? d.objetivos : {}
   };
@@ -815,6 +897,12 @@ function aplicar(d, o){
     case "pago-":
       d.pagos = d.pagos.filter(p => p.id !== o.id);
       break;
+    case "turno=": {
+      const dia = d.turnos[o.fecha] || (d.turnos[o.fecha] = {});
+      if (o.valor == null) delete dia[o.turno]; else dia[o.turno] = o.valor;
+      if (!Object.keys(dia).length) delete d.turnos[o.fecha];
+      break;
+    }
     case "ventas=":
       if (o.valor == null) delete d.ventas[o.clave]; else d.ventas[o.clave] = o.valor;
       break;
@@ -827,7 +915,7 @@ function aplicar(d, o){
       break;
     case "todo=": {
       const n = normalizar(o.datos);
-      d.empleados = n.empleados; d.pagos = n.pagos;
+      d.empleados = n.empleados; d.pagos = n.pagos; d.turnos = n.turnos;
       d.ventas = n.ventas; d.objetivos = n.objetivos;
       break;
     }
@@ -1027,6 +1115,18 @@ function arrancarSinc(){
 setInterval(() => { if (sinc.clave && !document.hidden) sincronizar(); }, 20000);
 document.addEventListener("visibilitychange", () => { if (sinc.clave && !document.hidden) sincronizar(); });
 window.addEventListener("online", () => { if (sinc.clave) sincronizar(); });
+
+/* ============================================================
+   DETALLES
+   ============================================================ */
+
+// Con un campo numérico enfocado, la rueda del mouse le suma o le resta sin
+// que nadie escriba nada: scrollear la página encima de un importe lo cambiaba
+// en silencio. Se le saca el foco y el scroll sigue de largo.
+document.addEventListener("wheel", e => {
+  if (document.activeElement === e.target &&
+      e.target.tagName === "INPUT" && e.target.type === "number") e.target.blur();
+}, { passive:true });
 
 /* ============================================================
    ARRANQUE

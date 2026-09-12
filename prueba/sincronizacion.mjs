@@ -14,7 +14,7 @@ import assert from "node:assert";
 // del <script> de la página, sin copiarlo, para que no se desfasen.
 const PAGINA = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const JS = PAGINA.match(/<script>([\s\S]*)<\/script>/)[1] +
-  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, lunesDe, congelar, registrar };\n";
+  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, lunesDe, congelar, registrar, ventasSemana, ventasDia };\n";
 
 // --- servidor de mentira ---
 let servidor = { version: 0, datos: null, fecha: null };
@@ -177,6 +177,38 @@ await bauti.traer();
 assert.equal(bauti.datos.objetivos["2026-W37"].z1, 500, "el objetivo viejo no se mueve");
 assert.equal(bauti.datos.empleados[0].semanal, 900, "el sueldo nuevo sí viaja");
 console.log("10. objetivos congelados: ok");
+
+/* ============ 11. facturación por turno ============ */
+const MARTES = "2026-09-08";
+bauti.op({ t:"turno=", fecha:MARTES, turno:"m", valor:120000 });
+mama .op({ t:"turno=", fecha:MARTES, turno:"t", valor:90000 });
+await esperar();
+await bauti.traer();
+assert.deepEqual(bauti.datos.turnos[MARTES], { m:120000, t:90000 }, "los turnos de los dos conviven");
+
+const lunes = bauti.lunesDe(new Date(MARTES + "T12:00"));
+assert.equal(bauti.ventasDia(MARTES), 210000, "el día suma sus dos turnos");
+assert.equal(bauti.ventasSemana(lunes, "2026-W37"), 210000, "la semana suma los días cargados");
+
+// cargar de nuevo el mismo turno corrige el monto, no lo duplica
+bauti.op({ t:"turno=", fecha:MARTES, turno:"m", valor:130000 });
+await esperar();
+assert.equal(bauti.ventasDia(MARTES), 220000, "recargar un turno lo reemplaza");
+
+// borrar un turno lo saca de la suma, también en el otro dispositivo
+mama.op({ t:"turno=", fecha:MARTES, turno:"m", valor:null });
+await esperar();
+await bauti.traer();
+assert.equal(bauti.datos.turnos[MARTES].m, undefined, "el turno borrado no vuelve");
+assert.equal(bauti.ventasSemana(lunes, "2026-W37"), 90000, "y la semana se recalcula");
+console.log("11. facturación por turno: ok");
+
+/* ============ 12. semanas cargadas a mano antes de los turnos ============ */
+bauti.op({ t:"ventas=", clave:"2026-W30", valor:4000000 });
+const lunesViejo = bauti.lunesDe(new Date("2026-07-22T12:00"));
+assert.equal(bauti.claveSemana(lunesViejo), "2026-W30");
+assert.equal(bauti.ventasSemana(lunesViejo, "2026-W30"), 4000000, "sin turnos vale el total viejo");
+console.log("12. semanas viejas cargadas a mano: ok");
 
 console.log("\nTODO OK — " + peticiones.length + " llamadas al servidor, versión final " + servidor.version);
 

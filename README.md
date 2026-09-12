@@ -12,6 +12,8 @@ vean lo mismo.
 - Registro de cada entrega con fecha y medio (transferencia / efectivo).
 - El objetivo semanal **se congela** al registrar el primer pago de esa semana,
   así un aumento de sueldo no reescribe el historial.
+- Facturación por turno: al cierre de cada turno (mañana y tarde) se carga el
+  monto y el total de la semana se suma solo.
 - Métricas: nómina sobre ventas, día en que se salda, entregas por empleado y
   porcentaje de semanas cerradas al día.
 - Respaldo en JSON y exportación a CSV para abrir en Excel.
