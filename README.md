@@ -66,6 +66,7 @@ si fuera una app.
     public/index.html            la app entera: estilos, HTML y JavaScript juntos
     netlify/functions/datos.mjs  guarda y entrega la planilla compartida
     prueba/sincronizacion.mjs    pruebas de la sincronización
+    prueba/funcion.mjs           pruebas de la clave y la ruta del backend
     netlify.toml                 configuración del sitio
 
 Todo el frente está en un solo archivo a propósito: se abre, se lee y se toca
@@ -75,10 +76,11 @@ sin instalar nada.
 
     npm test
 
-Corre el mismo JavaScript de la página en dos dispositivos simulados contra un
-servidor de mentira, y verifica los casos que importan: los dos cargando pagos
-a la vez, un borrado que se propaga, un corte de internet con reconexión y la
-restauración de un respaldo.
+Lo primero corre el mismo JavaScript de la página en dos dispositivos simulados
+contra un servidor de mentira, y verifica los casos que importan: los dos
+cargando pagos a la vez, un borrado que se propaga, un corte de internet con
+reconexión y la restauración de un respaldo. Lo segundo revisa la función: que
+sin `CLAVE_PANADERIA` no guarde nada y que una clave que no coincide no pase.
 
 ## Nota legal
 

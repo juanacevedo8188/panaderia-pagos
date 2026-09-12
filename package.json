@@ -5,9 +5,9 @@
   "type": "module",
   "description": "Planilla de pagos semanales de la Panaderia Avenida",
   "dependencies": {
-    "@netlify/blobs": "^8.1.0"
+    "@netlify/blobs": "^11.0.3"
   },
   "scripts": {
-    "test": "node prueba/sincronizacion.mjs"
+    "test": "node prueba/sincronizacion.mjs && node prueba/funcion.mjs"
   }
 }
