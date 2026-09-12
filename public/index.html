@@ -177,6 +177,26 @@ input,select,button{font:inherit;color:inherit}
   padding:.8rem .9rem;font-size:.83rem;margin-top:1.6rem;
 }
 .nota.roja{background:#FBEDE9;border-color:#E0AA9C}
+/* ============================================================
+   PLANILLA COMPARTIDA
+   ============================================================ */
+.sinc{
+  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+  background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.7rem .8rem;
+}
+.sinc .punto{width:9px;height:9px;border-radius:5px;background:var(--gris);flex:0 0 auto}
+.sinc .punto.ok{background:var(--verde)}
+.sinc .punto.yendo{background:var(--manteca)}
+.sinc .punto.mal{background:var(--alerta)}
+.sinc .texto{flex:1 1 40%;min-width:130px;font-size:.88rem}
+.sinc .texto small{display:block;font-size:.76rem;color:var(--gris)}
+.sinc input{flex:1 1 130px;min-width:0;border:1px solid var(--linea);border-radius:5px;padding:.45rem}
+.sinc button{
+  background:var(--azulejo);color:#fff;border:none;border-radius:5px;
+  padding:.5rem .8rem;cursor:pointer;font-weight:600;flex:0 0 auto;
+}
+.sinc button.suave{background:#fff;color:var(--azulejo);border:1px solid var(--linea);font-weight:400}
+
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);outline-offset:1px}
 </style>
 </head>
@@ -234,8 +254,14 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
   </section>
 
   <section class="seccion">
+    <h2>Planilla compartida</h2>
+    <p>Con la clave de la panadería, este dispositivo trabaja sobre la misma planilla que los demás: lo que carga uno lo ve el otro. Sin clave, los datos quedan solamente acá.</p>
+    <div class="sinc" id="sinc"></div>
+  </section>
+
+  <section class="seccion">
     <h2>Respaldo</h2>
-    <p>Los datos quedan en este navegador. Descargá el respaldo cada tanto, sobre todo antes de cambiar de teléfono.</p>
+    <p>Aunque estés sincronizado, descargá el respaldo cada tanto: es la copia que no depende de internet ni de este navegador.</p>
     <div class="acciones">
       <button class="lleno" id="b-bajar">Descargar respaldo</button>
       <button id="b-subir">Cargar respaldo</button>
@@ -340,9 +366,9 @@ function objetivoDe(emp, clave){
 }
 
 function congelar(clave){
-  if (!datos.objetivos[clave]) datos.objetivos[clave] = {};
   datos.empleados.forEach(e => {
-    if (datos.objetivos[clave][e.id] == null) datos.objetivos[clave][e.id] = e.semanal || 0;
+    const s = datos.objetivos[clave];
+    if (!s || s[e.id] == null) op({ t:"obj=", clave, empId:e.id, valor:e.semanal || 0 });
   });
 }
 
@@ -578,11 +604,8 @@ function pintarMetricas(){
 }
 
 $("ventas").addEventListener("input", e => {
-  if (!datos.ventas) datos.ventas = {};
   const v = parseFloat(e.target.value) || 0;
-  const clave = claveSemana(lunesVista);
-  if (v > 0) datos.ventas[clave] = v; else delete datos.ventas[clave];
-  guardar();
+  op({ t:"ventas=", clave:claveSemana(lunesVista), valor: v > 0 ? v : null });
   pintarMetricas();
 });
 
@@ -597,8 +620,8 @@ function registrar(empId, monto, medio){
   // se imputa al día de hoy si la semana es la actual; si no, al lunes de esa semana
   const hoy = new Date();
   const fecha = claveSemana(lunesDe(hoy)) === clave ? iso(hoy) : iso(lunesVista);
-  datos.pagos.push({ id:uid(), empId, fecha, monto, medio });
-  guardar(); render();
+  op({ t:"pago+", pago:{ id:uid(), empId, fecha, monto, medio } });
+  render();
 }
 
 $("fichas").addEventListener("click", e => {
@@ -615,8 +638,8 @@ $("fichas").addEventListener("click", e => {
     registrar(empId, parseFloat(e.target.dataset.rapido), ficha.querySelector("[data-medio]").value);
   }
   if (e.target.matches("[data-borrar]")){
-    datos.pagos = datos.pagos.filter(p => p.id !== e.target.dataset.borrar);
-    guardar(); render();
+    op({ t:"pago-", id:e.target.dataset.borrar });
+    render();
   }
 });
 
@@ -627,18 +650,27 @@ $("fichas").addEventListener("keydown", e => {
 });
 
 $("plantel").addEventListener("input", e => {
-  const fila = e.target.closest("[data-emp]");
-  const emp = datos.empleados.find(x => x.id === fila.dataset.emp);
-  if (e.target.matches("[data-nombre]")) emp.nombre = e.target.value;
-  if (e.target.matches("[data-semanal]")) emp.semanal = parseFloat(e.target.value) || 0;
-  guardar();
-  // actualiza fichas sin re-renderizar el plantel (se perdería el foco)
+  const id = e.target.closest("[data-emp]").dataset.emp;
+  const esNombre = e.target.matches("[data-nombre]");
+  if (esNombre) op({ t:"emp=", id, nombre:e.target.value });
+  else if (e.target.matches("[data-semanal]")) op({ t:"emp=", id, semanal:parseFloat(e.target.value) || 0 });
+  else return;
+
+  // mientras la semana no tenga pagos, el objetivo sigue al sueldo editado
   const clave = claveSemana(lunesVista);
-  if (datos.objetivos[clave]) delete datos.objetivos[clave][emp.id];
-  const fichas = $("fichas");
+  if (datos.objetivos[clave] && datos.objetivos[clave][id] != null)
+    op({ t:"obj-", clave, empId:id });
+
+  // render() rehace el plantel entero, así que hay que devolver el foco y el cursor
+  const pos = esNombre ? e.target.selectionStart : null;
   const scroll = window.scrollY;
   render(); window.scrollTo(0, scroll);
-  fila.querySelector(e.target.matches("[data-nombre]") ? "[data-nombre]" : "[data-semanal]").focus();
+  const fila = $("plantel").querySelector(`[data-emp="${id}"]`);
+  const campo = fila && fila.querySelector(esNombre ? "[data-nombre]" : "[data-semanal]");
+  if (campo){
+    campo.focus();
+    if (pos !== null) try { campo.setSelectionRange(pos, pos); } catch (err){}
+  }
 });
 
 $("plantel").addEventListener("click", e => {
@@ -646,14 +678,13 @@ $("plantel").addEventListener("click", e => {
   const id = e.target.closest("[data-emp]").dataset.emp;
   const emp = datos.empleados.find(x => x.id === id);
   if (!confirm(`¿Quitar a ${emp.nombre || "este empleado"}? Se borran también sus pagos registrados.`)) return;
-  datos.empleados = datos.empleados.filter(x => x.id !== id);
-  datos.pagos = datos.pagos.filter(p => p.empId !== id);
-  guardar(); render();
+  op({ t:"emp-", id });
+  render();
 });
 
 $("b-sumar").addEventListener("click", () => {
-  datos.empleados.push({ id:uid(), nombre:"", semanal:0 });
-  guardar(); render();
+  op({ t:"emp+", emp:{ id:uid(), nombre:"", semanal:0 } });
+  render();
   const ultimo = $("plantel").lastElementChild;
   if (ultimo) ultimo.querySelector("[data-nombre]").focus();
 });
@@ -693,7 +724,8 @@ $("archivo").addEventListener("change", e => {
       const nuevo = JSON.parse(lector.result);
       if (!nuevo.empleados || !nuevo.pagos) throw new Error("formato");
       if (!confirm("Esto reemplaza lo que tenés cargado ahora. ¿Seguimos?")) return;
-      datos = nuevo; guardar(); render();
+      op({ t:"todo=", datos:nuevo });
+      render();
     } catch (err){
       alert("El archivo no tiene el formato esperado. Probá con un respaldo descargado desde acá.");
     }
@@ -717,13 +749,296 @@ $("b-planilla").addEventListener("click", () => {
 });
 
 /* ============================================================
+   PLANILLA COMPARTIDA
+   Todo cambio se aplica primero acá y queda en una cola de
+   pendientes. Al empujarla, si el servidor avanzó por culpa de
+   otro dispositivo, se traen esos datos y se vuelven a aplicar
+   los cambios propios encima: nadie le pisa la carga al otro.
+   Sin clave configurada, la app funciona igual que siempre,
+   solamente contra este navegador.
+   ============================================================ */
+
+const CLAVE_SINC = "panaderia-sinc-v1";
+const API = "/api/datos";
+
+let sinc = { clave:"", version:0, pendientes:[], estado:"local", detalle:"", fecha:0 };
+let empujando = false, demora = null;
+
+function cargarSinc(){
+  try {
+    const crudo = localStorage.getItem(CLAVE_SINC);
+    if (crudo) Object.assign(sinc, JSON.parse(crudo));
+  } catch (e){}
+  if (!Array.isArray(sinc.pendientes)) sinc.pendientes = [];
+}
+
+function guardarSinc(){
+  try {
+    localStorage.setItem(CLAVE_SINC, JSON.stringify({
+      clave:sinc.clave, version:sinc.version, pendientes:sinc.pendientes
+    }));
+  } catch (e){ PERSISTE = false; }
+}
+
+function normalizar(d){
+  d = d || {};
+  return {
+    empleados: Array.isArray(d.empleados) ? d.empleados : [],
+    pagos:     Array.isArray(d.pagos)     ? d.pagos     : [],
+    ventas:    d.ventas    && typeof d.ventas    === "object" ? d.ventas    : {},
+    objetivos: d.objetivos && typeof d.objetivos === "object" ? d.objetivos : {}
+  };
+}
+
+/* --- las operaciones --- */
+
+function aplicar(d, o){
+  switch (o.t){
+    case "emp+":
+      if (!d.empleados.some(e => e.id === o.emp.id)) d.empleados.push(Object.assign({}, o.emp));
+      break;
+    case "emp-":
+      d.empleados = d.empleados.filter(e => e.id !== o.id);
+      d.pagos = d.pagos.filter(p => p.empId !== o.id);
+      break;
+    case "emp=": {
+      const e = d.empleados.find(x => x.id === o.id);
+      if (e){
+        if (o.nombre  !== undefined) e.nombre  = o.nombre;
+        if (o.semanal !== undefined) e.semanal = o.semanal;
+      }
+      break;
+    }
+    case "pago+":
+      if (!d.pagos.some(p => p.id === o.pago.id)) d.pagos.push(Object.assign({}, o.pago));
+      break;
+    case "pago-":
+      d.pagos = d.pagos.filter(p => p.id !== o.id);
+      break;
+    case "ventas=":
+      if (o.valor == null) delete d.ventas[o.clave]; else d.ventas[o.clave] = o.valor;
+      break;
+    case "obj=":
+      if (!d.objetivos[o.clave]) d.objetivos[o.clave] = {};
+      d.objetivos[o.clave][o.empId] = o.valor;
+      break;
+    case "obj-":
+      if (d.objetivos[o.clave]) delete d.objetivos[o.clave][o.empId];
+      break;
+    case "todo=": {
+      const n = normalizar(o.datos);
+      d.empleados = n.empleados; d.pagos = n.pagos;
+      d.ventas = n.ventas; d.objetivos = n.objetivos;
+      break;
+    }
+  }
+  return d;
+}
+
+function op(o){
+  aplicar(datos, o);
+  guardar();
+  if (!sinc.clave) return;
+  sinc.pendientes.push(o);
+  guardarSinc();
+  clearTimeout(demora);
+  demora = setTimeout(empujar, 700);
+}
+
+/* --- estado en pantalla --- */
+
+const RELOJ = t => new Date(t).toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" });
+
+const TITULOS = {
+  ok:"Planilla compartida", yendo:"Sincronizando…", local:"Solo en este dispositivo",
+  clave:"La clave no coincide", error:"Sin conexión con la planilla"
+};
+const PUNTOS = { ok:"ok", yendo:"yendo", clave:"mal", error:"mal" };
+
+function pintarSinc(estado, detalle){
+  if (estado) sinc.estado = estado;
+  sinc.detalle = detalle || "";
+  if (estado === "ok") sinc.fecha = Date.now();
+
+  let bajo = sinc.detalle;
+  if (!bajo && sinc.clave)
+    bajo = sinc.pendientes.length
+      ? `Falta subir ${sinc.pendientes.length} cambio${sinc.pendientes.length > 1 ? "s" : ""}`
+      : sinc.fecha ? `Al día · última vez a las ${RELOJ(sinc.fecha)}` : "Buscando la planilla…";
+  if (!bajo) bajo = "Nadie más ve lo que cargás acá.";
+
+  const campo = $("sinc-clave");
+  const escrito = campo ? campo.value : "";
+  const tenia = campo && document.activeElement === campo;
+
+  $("sinc").innerHTML = `
+    <span class="punto ${PUNTOS[sinc.estado] || ""}"></span>
+    <div class="texto">${TITULOS[sinc.estado] || ""}<small>${bajo}</small></div>` + (sinc.clave
+      ? `<button class="suave" data-salir>Desconectar</button>`
+      : `<input id="sinc-clave" type="password" placeholder="Clave de la panadería" autocomplete="current-password">
+         <button data-entrar>Conectar</button>`);
+
+  const nuevo = $("sinc-clave");
+  if (nuevo && escrito){ nuevo.value = escrito; if (tenia) nuevo.focus(); }
+}
+
+// mientras están escribiendo en un campo no se pisa la pantalla con lo remoto
+function ocupado(){
+  const a = document.activeElement;
+  return !!a && (a.tagName === "INPUT" || a.tagName === "SELECT") && a.id !== "sinc-clave";
+}
+
+/* --- ida y vuelta con el servidor --- */
+
+function pedir(metodo, cuerpo){
+  return fetch(API, {
+    method: metodo,
+    headers: Object.assign({ "x-clave": sinc.clave }, cuerpo ? { "content-type":"application/json" } : {}),
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined
+  });
+}
+
+async function empujar(){
+  if (!sinc.clave) return;
+  if (empujando){ clearTimeout(demora); demora = setTimeout(empujar, 700); return; }
+  if (!sinc.pendientes.length) return;
+
+  empujando = true;
+  pintarSinc("yendo", "Guardando…");
+  try {
+    for (let intento = 0; intento < 4; intento++){
+      const r = await pedir("PUT", { version:sinc.version, datos });
+
+      if (r.status === 409){                       // otro dispositivo guardó primero
+        const remoto = await r.json();
+        const base = normalizar(remoto.datos);
+        sinc.pendientes.forEach(o => aplicar(base, o));
+        datos = base;
+        sinc.version = remoto.version || 0;
+        guardar(); guardarSinc();
+        if (!ocupado()) render();
+        continue;
+      }
+      if (r.status === 401) return pintarSinc("clave", "Revisá la clave con quien la configuró.");
+      if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
+      if (!r.ok) throw new Error("http " + r.status);
+
+      const ok = await r.json();
+      sinc.version = ok.version;
+      sinc.pendientes = [];
+      guardarSinc();
+      return pintarSinc("ok");
+    }
+    pintarSinc("error", "No se pudo guardar, se reintenta en un rato.");
+  } catch (e){
+    pintarSinc("error", "Los cambios quedan guardados acá y se suben cuando vuelva.");
+  } finally {
+    empujando = false;
+  }
+}
+
+async function traer(){
+  if (!sinc.clave || empujando) return;
+  try {
+    const r = await pedir("GET");
+    if (r.status === 401) return pintarSinc("clave", "Revisá la clave con quien la configuró.");
+    if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
+    if (!r.ok) throw new Error("http " + r.status);
+
+    const remoto = await r.json();
+
+    if (!remoto.datos){                            // planilla vacía: la estrena este dispositivo
+      sinc.pendientes.push({ t:"todo=", datos:normalizar(datos) });
+      guardarSinc();
+      return empujar();
+    }
+    if (remoto.version !== sinc.version){
+      if (ocupado()) return;
+      datos = normalizar(remoto.datos);
+      sinc.version = remoto.version;
+      guardar(); guardarSinc(); render();
+    }
+    pintarSinc("ok");
+  } catch (e){
+    pintarSinc("error", "Seguís viendo la última copia bajada.");
+  }
+}
+
+const sincronizar = () => sinc.pendientes.length ? empujar() : traer();
+
+/* --- conectar y desconectar --- */
+
+async function conectar(clave){
+  if (!clave) return;
+  pintarSinc("yendo", "Probando la clave…");
+  try {
+    const r = await fetch(API, { headers:{ "x-clave":clave } });
+    if (r.status === 401) return pintarSinc("clave", "Probá de nuevo.");
+    if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
+    if (!r.ok) throw new Error("http " + r.status);
+
+    const remoto = await r.json();
+    const hayLocal = datos.pagos.length || datos.empleados.some(e => e.nombre);
+
+    if (remoto.datos && hayLocal && !confirm(
+      "La panadería ya tiene una planilla compartida.\n\n" +
+      "Al conectar, este dispositivo pasa a mostrar esa planilla y se reemplaza lo que tenés cargado acá. " +
+      "Si necesitás conservarlo, cancelá y descargá primero el respaldo.\n\n¿Conectamos igual?"))
+      return pintarSinc("local");
+
+    sinc.clave = clave;
+    sinc.pendientes = [];
+    if (remoto.datos){
+      datos = normalizar(remoto.datos);
+      sinc.version = remoto.version;
+      guardar(); render();
+      guardarSinc(); pintarSinc("ok");
+    } else {
+      sinc.version = remoto.version || 0;
+      sinc.pendientes.push({ t:"todo=", datos:normalizar(datos) });
+      guardarSinc(); empujar();
+    }
+  } catch (e){
+    pintarSinc("error", "No se pudo hablar con el servidor. ¿Estás abriendo la página publicada?");
+  }
+}
+
+function desconectar(){
+  if (!confirm("Este dispositivo deja de compartir la planilla: lo que cargues acá no lo va a ver nadie más. " +
+               "Los datos que ves ahora quedan guardados en este navegador.\n\n¿Desconectamos?")) return;
+  sinc.clave = ""; sinc.version = 0; sinc.pendientes = []; sinc.fecha = 0;
+  guardarSinc();
+  pintarSinc("local");
+}
+
+$("sinc").addEventListener("click", e => {
+  if (e.target.matches("[data-entrar]")) conectar($("sinc-clave").value.trim());
+  if (e.target.matches("[data-salir]"))  desconectar();
+});
+$("sinc").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.id === "sinc-clave") conectar(e.target.value.trim());
+});
+
+function arrancarSinc(){
+  pintarSinc(sinc.clave ? "yendo" : "local");
+  if (sinc.clave) sincronizar();
+}
+
+setInterval(() => { if (sinc.clave && !document.hidden) sincronizar(); }, 20000);
+document.addEventListener("visibilitychange", () => { if (sinc.clave && !document.hidden) sincronizar(); });
+window.addEventListener("online", () => { if (sinc.clave) sincronizar(); });
+
+/* ============================================================
    ARRANQUE
    ============================================================ */
 
 cargar();
+cargarSinc();
+datos = normalizar(datos);
 guardar();          // detecta si el navegador bloquea el almacenamiento
 avisoPersistencia();
 render();
+arrancarSinc();
 </script>
 </body>
 </html>

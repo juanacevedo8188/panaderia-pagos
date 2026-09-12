@@ -1,7 +1,11 @@
-# Sitio estático: no hay build, se publica la carpeta tal cual.
+# Sitio estático + una función para la planilla compartida.
 [build]
-  publish = "."
+  publish = "public"
   command = ""
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 # El HTML no se cachea, así cuando subimos un cambio lo ven al recargar.
 [[headers]]

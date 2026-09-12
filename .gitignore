@@ -7,3 +7,4 @@ pagos-*.csv
 Thumbs.db
 desktop.ini
 .netlify/
+node_modules/

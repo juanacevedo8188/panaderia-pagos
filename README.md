@@ -1,8 +1,9 @@
 # Pagos semanales — Panadería Avenida
 
 Planilla de control interno para registrar los pagos semanales al personal.
-Es una sola página HTML, sin servidor ni base de datos: se abre en el navegador
-y funciona también desde el celular.
+Es una página HTML que se abre en la compu o en el celular, y una función chica
+que guarda la planilla compartida para que todos los que administran el negocio
+vean lo mismo.
 
 ## Qué hace
 
@@ -14,38 +15,70 @@ y funciona también desde el celular.
 - Métricas: nómina sobre ventas, día en que se salda, entregas por empleado y
   porcentaje de semanas cerradas al día.
 - Respaldo en JSON y exportación a CSV para abrir en Excel.
+- **Planilla compartida**: con la clave de la panadería, todos los dispositivos
+  trabajan sobre los mismos datos.
 
-## Dónde se guardan los datos
+## La planilla compartida
 
-En el `localStorage` **del navegador que se usa**. Eso significa:
+Cada dispositivo guarda todo primero en su propio navegador y después lo sube.
+Si dos personas cargan algo casi al mismo tiempo, el servidor avisa que la
+planilla cambió: el dispositivo se trae lo del otro y vuelve a aplicar sus
+cambios encima. Nadie le pisa la carga a nadie, y si se corta internet los
+cambios quedan en cola y se suben solos cuando vuelve.
 
-- No hay cuenta ni login: quien abre el link ve su propia planilla vacía.
-- Los datos **no se sincronizan** entre la compu y el celular, ni entre dos
-  personas. Cada dispositivo lleva su propio registro.
-- Si se borran los datos del navegador o se cambia de teléfono, se pierde todo.
+Sin conectar, la app funciona igual que antes: los datos quedan solo en ese
+navegador y nadie más los ve.
 
-Por eso: **descargar el respaldo seguido** (botón "Descargar respaldo") y
-guardarlo en OneDrive o mandárselo por mail. Para pasarlo a otro dispositivo,
-se usa "Cargar respaldo" con ese mismo archivo.
+### Configurar la clave (una sola vez)
 
-## Cómo se publica en Netlify
+La clave **no está en el código**: se configura en Netlify, así el repo puede
+ser público sin abrirle la planilla a cualquiera.
 
-Opción A — conectado a GitHub (recomendado, se actualiza solo):
+1. En Netlify: *Site configuration → Environment variables → Add a variable*
+2. Key: `CLAVE_PANADERIA` — Value: una frase larga, no `1234`.
+3. *Deploys → Trigger deploy* para que la función tome la variable.
+4. En la app, abajo de todo, escribir esa misma clave en "Planilla compartida"
+   y tocar Conectar. Se hace una vez por dispositivo.
+
+Si la clave no está configurada, la función no guarda nada y la app lo avisa.
+Para cambiarla después, se edita la variable y cada uno vuelve a conectarse.
+
+### Dónde quedan los datos
+
+En [Netlify Blobs](https://docs.netlify.com/blobs/overview/), un único documento
+JSON asociado al sitio. Entra holgado en el plan gratuito. Igual conviene bajar
+el respaldo cada tanto: es la copia que no depende de internet ni de la cuenta.
+
+## Publicar en Netlify
 
 1. Subir este repo a GitHub.
 2. En Netlify: *Add new site → Import an existing project → GitHub* y elegir el repo.
-3. Build command: vacío. Publish directory: `.` (ya está en `netlify.toml`).
-4. Deploy. Cada `git push` a `main` republica el sitio.
+3. Build command: vacío. Publish directory: `public`. Ya está todo en `netlify.toml`.
+4. Configurar `CLAVE_PANADERIA` como se explica arriba.
+5. Deploy. Después, cada `git push` a `main` republica el sitio solo.
 
-Opción B — arrastrar la carpeta:
+Conviene ponerle un nombre lindo al sitio en *Site configuration → Change site
+name*, y desde el celular usar "Agregar a pantalla de inicio" para tenerlo como
+si fuera una app.
 
-1. Entrar a https://app.netlify.com/drop
-2. Arrastrar esta carpeta. Listo, queda online.
+## Estructura
 
-## Cómo se edita
+    public/index.html            la app entera: estilos, HTML y JavaScript juntos
+    netlify/functions/datos.mjs  guarda y entrega la planilla compartida
+    prueba/sincronizacion.mjs    pruebas de la sincronización
+    netlify.toml                 configuración del sitio
 
-Todo el código está en `index.html` (estilos, HTML y JavaScript en el mismo
-archivo, a propósito, para que se pueda abrir y tocar sin herramientas).
+Todo el frente está en un solo archivo a propósito: se abre, se lee y se toca
+sin instalar nada.
+
+## Pruebas
+
+    npm test
+
+Corre el mismo JavaScript de la página en dos dispositivos simulados contra un
+servidor de mentira, y verifica los casos que importan: los dos cargando pagos
+a la vez, un borrado que se propaga, un corte de internet con reconexión y la
+restauración de un respaldo.
 
 ## Nota legal
 
