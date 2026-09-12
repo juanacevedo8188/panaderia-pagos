@@ -14,7 +14,7 @@ import assert from "node:assert";
 // del <script> de la página, sin copiarlo, para que no se desfasen.
 const PAGINA = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const JS = PAGINA.match(/<script>([\s\S]*)<\/script>/)[1] +
-  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, lunesDe, congelar, registrar, ventasSemana, ventasDia };\n";
+  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, lunesDe, congelar, registrar, ventasSemana, ventasDia, gastosDe };\n";
 
 // --- servidor de mentira ---
 let servidor = { version: 0, datos: null, fecha: null };
@@ -209,6 +209,25 @@ const lunesViejo = bauti.lunesDe(new Date("2026-07-22T12:00"));
 assert.equal(bauti.claveSemana(lunesViejo), "2026-W30");
 assert.equal(bauti.ventasSemana(lunesViejo, "2026-W30"), 4000000, "sin turnos vale el total viejo");
 console.log("12. semanas viejas cargadas a mano: ok");
+
+/* ============ 13. costos generales ============ */
+bauti.op({ t:"gasto+", gasto:{ id:"g-harina", fecha:MARTES, monto:450000, concepto:"harina" } });
+mama .op({ t:"gasto+", gasto:{ id:"g-luz",    fecha:MARTES, monto:80000,  concepto:"luz" } });
+await esperar();
+await bauti.traer();
+assert.equal(bauti.gastosDe(lunes).length, 2, "los costos de los dos conviven");
+assert.equal(bauti.gastosDe(lunes).reduce((a, g) => a + g.monto, 0), 530000, "y suman");
+
+// un costo de otra semana no entra en esta
+bauti.op({ t:"gasto+", gasto:{ id:"g-viejo", fecha:"2026-07-22", monto:999, concepto:"alquiler" } });
+assert.equal(bauti.gastosDe(lunes).length, 2, "cada costo cae en su semana");
+
+mama.op({ t:"gasto-", id:"g-harina" });
+await esperar();
+await bauti.traer();
+assert.equal(bauti.gastosDe(lunes).map(g => g.concepto).join(","), "luz", "el costo borrado no vuelve");
+console.log("13. costos generales: ok");
+
 
 console.log("\nTODO OK — " + peticiones.length + " llamadas al servidor, versión final " + servidor.version);
 

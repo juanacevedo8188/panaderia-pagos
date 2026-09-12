@@ -139,6 +139,23 @@ input,select,button{font:inherit;color:inherit}
 .factura .total b{font-size:1.25rem;font-variant-numeric:tabular-nums}
 .factura .movimientos{margin-top:.5rem}
 .factura .cargar{margin-top:.6rem}
+.factura .cargar input.chico{flex:0 0 95px}
+.mov .concepto{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.neto{
+  background:#fff;border:1px solid var(--linea);border-radius:8px;
+  padding:.85rem .9rem;margin-bottom:1.1rem;
+}
+.neto .linea{
+  display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;
+  font-size:.86rem;padding:.12rem 0;
+}
+.neto .linea b{font-weight:500;font-variant-numeric:tabular-nums}
+.neto .resta b{color:var(--gris)}
+.neto .final{border-top:1px solid var(--linea);margin-top:.45rem;padding-top:.5rem;font-size:.92rem}
+.neto .final b{font-size:1.25rem;font-weight:600}
+.neto .final.bien b{color:var(--verde)}
+.neto .final.mal b{color:var(--alerta)}
 .tarjetas{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.1rem}
 .tarjeta{background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.8rem}
 .tarjeta .valor{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
@@ -233,9 +250,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
 
   <section class="seccion">
     <h2>Números</h2>
-    <p>Al cierre de cada turno cargás el monto y listo: la semana se suma sola. Con eso sale el ratio de nómina sobre ventas, que es el único número que no se distorsiona con la inflación.</p>
+    <p>Al cierre de cada turno cargás el monto y listo: la semana se suma sola. Abajo van los costos y queda el neto.</p>
 
     <div class="factura" id="factura"></div>
+    <div class="factura" id="costos"></div>
+    <div class="neto" id="neto"></div>
 
     <div class="tarjetas" id="tarjetas"></div>
 
@@ -295,7 +314,8 @@ let datos = {
     { id:"e1", nombre:"", semanal:0 }
   ],
   pagos: [],        // { id, empId, fecha, monto, medio, nota }
-  turnos: {},       // { "2026-09-08": { m:120000, t:90000, n:60000 } }  cierre de cada turno
+  turnos: {},       // { "2026-09-08": { m:120000, t:90000 } }  cierre de cada turno
+  gastos: [],       // { id, fecha, monto, concepto }  costos generales de la semana
   ventas: {},       // { "2026-W37": 5400000 }  total semanal cargado a mano (antes de los turnos)
   objetivos: {}     // { "2026-W37": { e1: 320000 } }  congelado por semana
 };
@@ -355,6 +375,10 @@ function claveSemana(lunes){
 let lunesVista = lunesDe(new Date());
 
 const pesos = v => "$" + Math.round(v).toLocaleString("es-AR");
+const conSigno = v => (v < 0 ? "−" : "") + pesos(Math.abs(v));
+// lo que escriben Bauti y su mamá se muestra como texto, nunca como HTML
+const limpio = t => String(t == null ? "" : t)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const $ = id => document.getElementById(id);
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -435,6 +459,82 @@ function pintarFactura(){
     </div>`;
 }
 
+function gastosDe(lunes){
+  const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+  return datos.gastos
+    .filter(g => { const d = desdeISO(g.fecha); return d >= lunes && d <= domingo; })
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+function pintarCostos(){
+  const lista = gastosDe(lunesVista);
+  const total = lista.reduce((a, g) => a + g.monto, 0);
+
+  $("costos").innerHTML = `
+    <div class="total"><span>Costos de la semana</span><b class="num">${pesos(total)}</b></div>
+    <div class="movimientos">
+      ${lista.length ? lista.map(g => `
+        <div class="mov">
+          <span class="fecha">${desdeISO(g.fecha).toLocaleDateString("es-AR",{weekday:"short",day:"numeric"})}</span>
+          <span class="concepto">${limpio(g.concepto)}</span>
+          <span class="monto">${pesos(g.monto)}</span>
+          <button class="borrar" data-gasto="${g.id}" aria-label="Borrar ${limpio(g.concepto)}">×</button>
+        </div>`).join("") : `<div class="vacio">Sin costos cargados esta semana.</div>`}
+    </div>
+    <div class="cargar">
+      <input type="text" id="costo-concepto" placeholder="En qué" maxlength="40">
+      <input type="number" id="costo-monto" class="chico" placeholder="Monto" inputmode="decimal" min="0" step="1000">
+      <button id="costo-guardar">Guardar</button>
+    </div>`;
+}
+
+// El costo de la semana en sueldos es lo que corresponde pagar, esté entregado
+// o no: si no, el neto mejoraría solo por atrasarse con un pago.
+function pintarNeto(){
+  const clave = claveSemana(lunesVista);
+  const facturacion = ventasSemana(lunesVista, clave);
+  const sueldos = datos.empleados.reduce((a, e) => a + objetivoDe(e, clave), 0);
+  const costos = gastosDe(lunesVista).reduce((a, g) => a + g.monto, 0);
+  const neto = facturacion - sueldos - costos;
+
+  $("neto").innerHTML = `
+    <div class="linea"><span>Facturación</span><b>${pesos(facturacion)}</b></div>
+    <div class="linea resta"><span>Sueldos de la semana</span><b>−${pesos(sueldos)}</b></div>
+    <div class="linea resta"><span>Costos generales</span><b>−${pesos(costos)}</b></div>
+    <div class="linea final ${neto >= 0 ? "bien" : "mal"}">
+      <span>Neto de la semana</span><b>${conSigno(neto)}</b>
+    </div>`;
+}
+
+function guardarCosto(){
+  const campoQue = $("costo-concepto"), campoMonto = $("costo-monto");
+  const monto = parseFloat(campoMonto.value) || 0;
+  const concepto = campoQue.value.trim();
+  if (!concepto) return campoQue.focus();
+  if (!(monto > 0)) return campoMonto.focus();
+
+  const clave = claveSemana(lunesVista);
+  const hoy = new Date();
+  const fecha = claveSemana(lunesDe(hoy)) === clave ? iso(hoy) : iso(lunesVista);
+
+  op({ t:"gasto+", gasto:{ id:uid(), fecha, monto, concepto } });
+  campoQue.value = ""; campoMonto.value = "";
+  pintarCostos(); pintarNeto(); pintarMetricas();
+  $("costo-concepto").focus();
+}
+
+$("costos").addEventListener("click", e => {
+  if (e.target.id === "costo-guardar") guardarCosto();
+  if (e.target.matches("[data-gasto]")){
+    op({ t:"gasto-", id:e.target.dataset.gasto });
+    pintarCostos(); pintarNeto(); pintarMetricas();
+  }
+});
+
+$("costos").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.target.id === "costo-concepto" || e.target.id === "costo-monto")) guardarCosto();
+});
+
 // se imputa al día de hoy si la semana es la actual; si no, al lunes de esa semana
 function guardarTurno(){
   const campo = $("fact-monto");
@@ -448,6 +548,7 @@ function guardarTurno(){
   op({ t:"turno=", fecha, turno:$("fact-turno").value, valor:monto });
   campo.value = "";
   pintarFactura();
+  pintarNeto();
   pintarMetricas();
   $("fact-monto").focus();
 }
@@ -458,6 +559,7 @@ $("factura").addEventListener("click", e => {
     const [fecha, turno] = e.target.dataset.quitar.split(":");
     op({ t:"turno=", fecha, turno, valor:null });
     pintarFactura();
+    pintarNeto();
     pintarMetricas();
   }
 });
@@ -505,7 +607,7 @@ function render(){
     return `
     <div class="ficha ${listo && !exceso ? "saldada" : ""}" data-emp="${emp.id}">
       <div class="ficha-tope">
-        <h3>${emp.nombre || "Sin nombre"}</h3>
+        <h3>${limpio(emp.nombre) || "Sin nombre"}</h3>
         <span class="ficha-saldo ${exceso ? "exceso" : listo ? "ok" : ""}">
           ${sinSueldo ? "" : exceso ? "de más " + pesos(pagado - objetivo) : listo ? "saldado" : "falta " + pesos(saldo)}
         </span>
@@ -556,6 +658,8 @@ function render(){
     </div>`).join("");
 
   pintarFactura();
+  pintarCostos();
+  pintarNeto();
   pintarMetricas();
 }
 
@@ -878,6 +982,7 @@ function normalizar(d){
     empleados: Array.isArray(d.empleados) ? d.empleados : [],
     pagos:     Array.isArray(d.pagos)     ? d.pagos     : [],
     turnos:    d.turnos    && typeof d.turnos    === "object" ? d.turnos    : {},
+    gastos:    Array.isArray(d.gastos)    ? d.gastos    : [],
     ventas:    d.ventas    && typeof d.ventas    === "object" ? d.ventas    : {},
     objetivos: d.objetivos && typeof d.objetivos === "object" ? d.objetivos : {}
   };
@@ -908,6 +1013,12 @@ function aplicar(d, o){
     case "pago-":
       d.pagos = d.pagos.filter(p => p.id !== o.id);
       break;
+    case "gasto+":
+      if (!d.gastos.some(g => g.id === o.gasto.id)) d.gastos.push(Object.assign({}, o.gasto));
+      break;
+    case "gasto-":
+      d.gastos = d.gastos.filter(g => g.id !== o.id);
+      break;
     case "turno=": {
       const dia = d.turnos[o.fecha] || (d.turnos[o.fecha] = {});
       if (o.valor == null) delete dia[o.turno]; else dia[o.turno] = o.valor;
@@ -927,7 +1038,7 @@ function aplicar(d, o){
     case "todo=": {
       const n = normalizar(o.datos);
       d.empleados = n.empleados; d.pagos = n.pagos; d.turnos = n.turnos;
-      d.ventas = n.ventas; d.objetivos = n.objetivos;
+      d.gastos = n.gastos; d.ventas = n.ventas; d.objetivos = n.objetivos;
       break;
     }
   }

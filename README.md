@@ -14,6 +14,10 @@ vean lo mismo.
   así un aumento de sueldo no reescribe el historial.
 - Facturación por turno: al cierre de cada turno (mañana y tarde) se carga el
   monto y el total de la semana se suma solo.
+- Costos generales de la semana, cargados uno por uno con su concepto.
+- Neto de la semana: facturación menos sueldos menos costos. Los sueldos entran
+  por lo que corresponde pagar, no por lo entregado, así atrasarse con un pago
+  no mejora el neto.
 - Métricas: nómina sobre ventas, día en que se salda, entregas por empleado y
   porcentaje de semanas cerradas al día.
 - Respaldo en JSON y exportación a CSV para abrir en Excel.
