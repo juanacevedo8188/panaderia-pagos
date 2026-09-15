@@ -204,22 +204,46 @@ input,select,button{font:inherit;color:inherit}
 .grafico svg{width:100%;height:auto;display:block}
 .graf-pie{font-size:.76rem;color:var(--gris);margin:.6rem 0 0}
 
-.plantel-fila{
-  display:flex;gap:.4rem;align-items:center;
-  background:#fff;border:1px solid var(--linea);border-radius:6px;
-  padding:.5rem;margin-bottom:.45rem;
+.emp{
+  background:#fff;border:1px solid var(--linea);border-radius:8px;
+  padding:.7rem .75rem;margin-bottom:.55rem;box-shadow:0 1px 2px rgba(28,43,54,.04);
 }
-.plantel-fila input[type="text"]{flex:1;min-width:0;border:1px solid var(--linea);border-radius:5px;padding:.4rem}
-.plantel-fila input[type="number"]{width:112px;border:1px solid var(--linea);border-radius:5px;padding:.4rem;text-align:right;font-variant-numeric:tabular-nums}
-.plantel-fila button{background:none;border:none;color:var(--gris);cursor:pointer;font-size:1.05rem;width:1.4rem;padding:0}
-.plantel-fila.encabezado{
-  background:none;border-color:transparent;padding:0 .5rem .1rem;margin-bottom:.1rem;
-  font-size:.72rem;color:var(--gris);
+.emp-tope{display:flex;gap:.4rem;align-items:center}
+.emp-tope input{
+  flex:1;min-width:0;border:1px solid var(--linea);border-radius:5px;
+  padding:.45rem;font-weight:600;
 }
-.plantel-fila.encabezado span:nth-child(1){flex:1;min-width:0}
-.plantel-fila.encabezado span:nth-child(2){width:112px;text-align:right}
-.plantel-fila.encabezado span:nth-child(3){width:1.4rem}
-.plantel-fila button:hover{color:var(--alerta)}
+.emp-tope button{background:none;border:none;color:var(--gris);cursor:pointer;font-size:1.05rem;width:1.4rem;padding:0}
+.emp-tope button:hover{color:var(--alerta)}
+.emp-pago{display:flex;gap:.35rem;margin-top:.45rem}
+.emp-pago select{
+  border:1px solid var(--linea);border-radius:5px;padding:.4rem .15rem;
+  background:#fff;font-size:.84rem;flex:0 0 auto;
+}
+.emp-pago input{
+  flex:1;min-width:0;border:1px solid var(--linea);border-radius:5px;
+  padding:.4rem;text-align:right;font-variant-numeric:tabular-nums;
+}
+.emp-dias{margin-top:.5rem}
+.emp-dias .rotulo{font-size:.72rem;color:var(--gris)}
+.emp-pie{
+  margin-top:.5rem;padding-top:.45rem;border-top:1px solid var(--linea);
+  font-size:.78rem;color:var(--gris);
+}
+.emp-pie b{color:var(--tinta);font-variant-numeric:tabular-nums}
+
+.toggles{display:flex;gap:.25rem;margin-top:.25rem}
+.toggles button{
+  flex:1;min-width:0;background:#fff;border:1px solid var(--linea);border-radius:5px;
+  padding:.35rem 0;font-size:.8rem;color:var(--gris);cursor:pointer;
+}
+.toggles button:hover{border-color:var(--azulejo)}
+.toggles button.si{background:var(--azulejo);border-color:var(--azulejo);color:#fff;font-weight:600}
+
+/* los días trabajados de esta semana, dentro de la ficha */
+.dias-emp{display:flex;align-items:center;gap:.5rem;margin-top:.6rem;flex-wrap:wrap}
+.dias-emp .toggles{flex:1 1 170px;margin:0}
+.dias-emp .cuenta{font-size:.76rem;color:var(--gris);white-space:nowrap;font-variant-numeric:tabular-nums}
 
 .acciones{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
 .acciones button{
@@ -334,10 +358,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
   <div class="panel" id="panel-ajustes" role="tabpanel" aria-labelledby="tab-ajustes">
   <section class="seccion">
     <h2>Plantel</h2>
-    <p>Lo que le pagás por semana a cada uno. De acá sale el "falta" de cada ficha. El monto queda congelado en cada semana al registrar el primer pago, así editarlo no te cambia el historial.</p>
+    <p>Cuánto cobra cada uno: un sueldo fijo por semana, o tanto por día trabajado más el cole. De acá sale el "falta" de cada ficha. Un aumento vale desde la semana en curso, salvo que a esa persona ya se le haya pagado algo: en ese caso arranca la semana siguiente y no te reescribe lo que ya cobró.</p>
     <div id="plantel"></div>
     <div class="acciones">
       <button id="b-sumar">Agregar empleado</button>
+      <button class="lleno" id="b-plantel-inicial" hidden>Cargar el plantel de la panadería</button>
     </div>
   </section>
 
@@ -376,14 +401,14 @@ const CLAVE = "panaderia-pagos-v1";
 let PERSISTE = true;
 
 let datos = {
-  empleados: [
-    { id:"e1", nombre:"", semanal:0 }
-  ],
+  // { id, nombre, modo:"semana"|"dia", monto, extra, dias:[0..6] }
+  empleados: [],
   pagos: [],        // { id, empId, fecha, monto, medio, nota }
-  turnos: {},       // { "2026-09-08": { m:120000, t:90000 } }  cierre de cada turno
+  turnos: {},       // { "2026-09-15": { m:120000, t:90000 } }  cierre de cada turno
   gastos: [],       // { id, fecha, monto, concepto }  costos generales de la semana
-  ventas: {},       // { "2026-W37": 5400000 }  total semanal cargado a mano (antes de los turnos)
-  objetivos: {}     // { "2026-W37": { e1: 320000 } }  congelado por semana
+  dias: {},         // { "2026-09-13": { e1:[0,2,3] } }  días que trabajó cada jornalero
+  ventas: {},       // { "2026-09-13": 5400000 }  total semanal cargado a mano (antes de los turnos)
+  objetivos: {}     // { "2026-09-13": { e1:{modo,monto,extra} } }  tarifa congelada
 };
 
 function cargar(){
@@ -414,31 +439,38 @@ function avisoPersistencia(){
 }
 
 /* ============================================================
-   FECHAS — semana de lunes a domingo
+   FECHAS — la semana de la panadería va de domingo a sábado
    ============================================================ */
 
 const MESES = ["enero","febrero","marzo","abril","mayo","junio",
                "julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
+// mismo orden que Date.getDay(): 0 es domingo
+const DIAS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const INICIALES = ["D","L","M","M","J","V","S"];
+
 const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const desdeISO = s => new Date(s + "T12:00");
 
-function lunesDe(d){
+function inicioDe(d){
   const x = new Date(d);
-  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  x.setDate(x.getDate() - x.getDay());              // el domingo de esa semana
   x.setHours(12,0,0,0);
   return x;
 }
 
-function claveSemana(lunes){
-  const j = new Date(lunes);
-  j.setDate(j.getDate() + 3);                       // jueves de esa semana
-  const inicio = new Date(j.getFullYear(), 0, 4);
-  const n = 1 + Math.round(((j - inicio) / 86400000 - 3 + ((inicio.getDay() + 6) % 7)) / 7);
-  return `${j.getFullYear()}-W${String(n).padStart(2,"0")}`;
+// A la semana la nombra la fecha de su domingo: "2026-09-13".
+const claveSemana = inicio => iso(inicio);
+
+function diasDe(inicio){
+  const l = [];
+  for (let i = 0; i < 7; i++){
+    const d = new Date(inicio); d.setDate(d.getDate() + i); l.push(d);
+  }
+  return l;
 }
 
-let lunesVista = lunesDe(new Date());
+let inicioVista = inicioDe(new Date());
 
 const pesos = v => "$" + Math.round(v).toLocaleString("es-AR");
 const conSigno = v => (v < 0 ? "−" : "") + pesos(Math.abs(v));
@@ -449,19 +481,54 @@ const $ = id => document.getElementById(id);
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 /* ============================================================
-   OBJETIVOS CONGELADOS
+   CUÁNTO LE CORRESPONDE A CADA UNO
+   Dos formas de pago: semanal fijo, o por día trabajado más un
+   extra por día para el cole. En el segundo caso la semana depende
+   de los días que trabajó, y esos se marcan semana por semana:
+   hay gente que cubre turnos sueltos y no tiene días fijos.
+
+   Al registrar el primer pago de una semana se congela la tarifa,
+   así un aumento no reescribe el historial. Los días no se
+   congelan: son un hecho de esa semana y se siguen marcando.
    ============================================================ */
 
-function objetivoDe(emp, clave){
+const TODOS_LOS_DIAS = [0,1,2,3,4,5,6];
+
+function tarifaDe(emp, clave){
   const s = datos.objetivos[clave];
-  if (s && s[emp.id] != null) return s[emp.id];
-  return emp.semanal || 0;
+  const g = s ? s[emp.id] : null;
+  if (g == null) return { modo:emp.modo || "semana", monto:emp.monto || 0, extra:emp.extra || 0 };
+  // las semanas viejas guardaban un número suelto: era el total semanal
+  if (typeof g === "number") return { modo:"semana", monto:g, extra:0 };
+  return { modo:g.modo || "semana", monto:g.monto || 0, extra:g.extra || 0 };
+}
+
+function diasTrabajados(emp, clave){
+  const s = datos.dias[clave];
+  if (s && Array.isArray(s[emp.id])) return s[emp.id];
+  return Array.isArray(emp.dias) ? emp.dias : [];
+}
+
+function objetivoDe(emp, clave){
+  const t = tarifaDe(emp, clave);
+  return t.modo === "dia"
+    ? (t.monto + t.extra) * diasTrabajados(emp, clave).length
+    : t.monto;
+}
+
+// lo que sale una semana con los días de siempre, para mostrarlo en Ajustes
+function objetivoHabitual(emp){
+  return emp.modo === "dia"
+    ? ((emp.monto || 0) + (emp.extra || 0)) * (Array.isArray(emp.dias) ? emp.dias.length : 0)
+    : emp.monto || 0;
 }
 
 function congelar(clave){
   datos.empleados.forEach(e => {
     const s = datos.objetivos[clave];
-    if (!s || s[e.id] == null) op({ t:"obj=", clave, empId:e.id, valor:e.semanal || 0 });
+    if (!s || s[e.id] == null)
+      op({ t:"obj=", clave, empId:e.id,
+           valor:{ modo:e.modo || "semana", monto:e.monto || 0, extra:e.extra || 0 } });
   });
 }
 
@@ -474,26 +541,18 @@ function congelar(clave){
 
 const TURNOS = [["m","mañana"],["t","tarde"]];
 
-function diasDe(lunes){
-  const l = [];
-  for (let i = 0; i < 7; i++){
-    const d = new Date(lunes); d.setDate(d.getDate() + i); l.push(d);
-  }
-  return l;
-}
-
 function ventasDia(fecha){
   const d = datos.turnos[fecha];
   return d ? Object.keys(d).reduce((a, k) => a + (d[k] || 0), 0) : 0;
 }
 
-function ventasSemana(lunes, clave){
-  const total = diasDe(lunes).reduce((a, d) => a + ventasDia(iso(d)), 0);
+function ventasSemana(inicio, clave){
+  const total = diasDe(inicio).reduce((a, d) => a + ventasDia(iso(d)), 0);
   return total || (datos.ventas ? datos.ventas[clave] || 0 : 0);
 }
 
 function pintarFactura(){
-  const dias = diasDe(lunesVista);
+  const dias = diasDe(inicioVista);
   const filas = [];
   let semana = 0;
 
@@ -511,7 +570,7 @@ function pintarFactura(){
     });
   });
 
-  const aMano = datos.ventas ? datos.ventas[claveSemana(lunesVista)] || 0 : 0;
+  const aMano = datos.ventas ? datos.ventas[claveSemana(inicioVista)] || 0 : 0;
 
   $("factura").innerHTML = `
     <div class="total"><span>Facturación de la semana</span><b class="num">${pesos(semana || aMano)}</b></div>
@@ -525,15 +584,15 @@ function pintarFactura(){
     </div>`;
 }
 
-function gastosDe(lunes){
-  const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+function gastosDe(inicio){
+  const fin = new Date(inicio); fin.setDate(fin.getDate() + 6);
   return datos.gastos
-    .filter(g => { const d = desdeISO(g.fecha); return d >= lunes && d <= domingo; })
+    .filter(g => { const d = desdeISO(g.fecha); return d >= inicio && d <= fin; })
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 
 function pintarCostos(){
-  const lista = gastosDe(lunesVista);
+  const lista = gastosDe(inicioVista);
   const total = lista.reduce((a, g) => a + g.monto, 0);
 
   $("costos").innerHTML = `
@@ -557,10 +616,10 @@ function pintarCostos(){
 // El costo de la semana en sueldos es lo que corresponde pagar, esté entregado
 // o no: si no, el neto mejoraría solo por atrasarse con un pago.
 function pintarNeto(){
-  const clave = claveSemana(lunesVista);
-  const facturacion = ventasSemana(lunesVista, clave);
+  const clave = claveSemana(inicioVista);
+  const facturacion = ventasSemana(inicioVista, clave);
   const sueldos = datos.empleados.reduce((a, e) => a + objetivoDe(e, clave), 0);
-  const costos = gastosDe(lunesVista).reduce((a, g) => a + g.monto, 0);
+  const costos = gastosDe(inicioVista).reduce((a, g) => a + g.monto, 0);
   const neto = facturacion - sueldos - costos;
 
   $("neto").innerHTML = `
@@ -579,9 +638,9 @@ function guardarCosto(){
   if (!concepto) return campoQue.focus();
   if (!(monto > 0)) return campoMonto.focus();
 
-  const clave = claveSemana(lunesVista);
+  const clave = claveSemana(inicioVista);
   const hoy = new Date();
-  const fecha = claveSemana(lunesDe(hoy)) === clave ? iso(hoy) : iso(lunesVista);
+  const fecha = claveSemana(inicioDe(hoy)) === clave ? iso(hoy) : iso(inicioVista);
 
   op({ t:"gasto+", gasto:{ id:uid(), fecha, monto, concepto } });
   campoQue.value = ""; campoMonto.value = "";
@@ -601,15 +660,15 @@ $("costos").addEventListener("keydown", e => {
   if (e.key === "Enter" && (e.target.id === "costo-concepto" || e.target.id === "costo-monto")) guardarCosto();
 });
 
-// se imputa al día de hoy si la semana es la actual; si no, al lunes de esa semana
+// se imputa al día de hoy si la semana es la actual; si no, al domingo de esa semana
 function guardarTurno(){
   const campo = $("fact-monto");
   const monto = parseFloat(campo.value) || 0;
   if (!(monto > 0)) return;
 
-  const clave = claveSemana(lunesVista);
+  const clave = claveSemana(inicioVista);
   const hoy = new Date();
-  const fecha = claveSemana(lunesDe(hoy)) === clave ? iso(hoy) : iso(lunesVista);
+  const fecha = claveSemana(inicioDe(hoy)) === clave ? iso(hoy) : iso(inicioVista);
 
   op({ t:"turno=", fecha, turno:$("fact-turno").value, valor:monto });
   campo.value = "";
@@ -638,23 +697,23 @@ $("factura").addEventListener("keydown", e => {
    RENDER
    ============================================================ */
 
-function pagosDe(empId, lunes){
-  const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+function pagosDe(empId, inicio){
+  const fin = new Date(inicio); fin.setDate(fin.getDate() + 6);
   return datos.pagos
     .filter(p => p.empId === empId)
-    .filter(p => { const d = desdeISO(p.fecha); return d >= lunes && d <= domingo; })
+    .filter(p => { const d = desdeISO(p.fecha); return d >= inicio && d <= fin; })
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 
 function render(){
-  const clave = claveSemana(lunesVista);
-  const domingo = new Date(lunesVista); domingo.setDate(domingo.getDate() + 6);
+  const clave = claveSemana(inicioVista);
+  const fin = new Date(inicioVista); fin.setDate(fin.getDate() + 6);
 
   // en el celular la barra fija tiene que entrar en una línea
-  $("sem-rango").textContent = lunesVista.getMonth() === domingo.getMonth()
-    ? `${lunesVista.getDate()} al ${domingo.getDate()} de ${MESES[lunesVista.getMonth()]}`
-    : `${lunesVista.getDate()} de ${MESES[lunesVista.getMonth()].slice(0,3)} al ${domingo.getDate()} de ${MESES[domingo.getMonth()].slice(0,3)}`;
-  const estaSemana = claveSemana(lunesDe(new Date())) === clave;
+  $("sem-rango").textContent = inicioVista.getMonth() === fin.getMonth()
+    ? `${inicioVista.getDate()} al ${fin.getDate()} de ${MESES[inicioVista.getMonth()]}`
+    : `${inicioVista.getDate()} de ${MESES[inicioVista.getMonth()].slice(0,3)} al ${fin.getDate()} de ${MESES[fin.getMonth()].slice(0,3)}`;
+  const estaSemana = claveSemana(inicioDe(new Date())) === clave;
   $("sem-nota").textContent = estaSemana ? "· en curso" : "";
   $("sem-despues").disabled = false;
 
@@ -662,7 +721,7 @@ function render(){
 
   $("fichas").innerHTML = datos.empleados.map(emp => {
     const objetivo = objetivoDe(emp, clave);
-    const movs = pagosDe(emp.id, lunesVista);
+    const movs = pagosDe(emp.id, inicioVista);
     const pagado = movs.reduce((a, p) => a + p.monto, 0);
     const saldo = objetivo - pagado;
     totObj += objetivo; totPag += pagado;
@@ -671,6 +730,14 @@ function render(){
     const pct = objetivo > 0 ? Math.min(100, (pagado / objetivo) * 100) : 0;
     const exceso = pagado > objetivo && objetivo > 0;
     const listo = objetivo > 0 && pagado >= objetivo;
+
+    const tarifa = tarifaDe(emp, clave);
+    const porDia = tarifa.modo === "dia";
+    const valorDia = tarifa.monto + tarifa.extra;
+    const marcados = porDia ? diasTrabajados(emp, clave) : [];
+    const pendiente = porDia
+      ? valorDia > 0 ? "marcá los días que trabajó" : "falta cargarle el valor del día en Ajustes"
+      : "falta cargarle el sueldo semanal en Ajustes";
 
     return `
     <div class="ficha ${listo && !exceso ? "saldada" : ""}" data-emp="${emp.id}">
@@ -683,8 +750,16 @@ function render(){
       <div class="barra"><i class="${exceso ? "exceso" : listo ? "completa" : ""}" style="width:${pct}%"></i></div>
       <div class="ficha-pie">
         <span>${pesos(pagado)} entregado</span>
-        <span>${sinSueldo ? "falta cargarle el sueldo semanal en Plantel" : "de " + pesos(objetivo)}</span>
+        <span>${sinSueldo ? pendiente : "de " + pesos(objetivo)}</span>
       </div>
+
+      ${porDia ? `<div class="dias-emp">
+        <div class="toggles">
+          ${INICIALES.map((ini, i) => `<button data-dia="${i}" class="${marcados.includes(i) ? "si" : ""}"
+             aria-pressed="${marcados.includes(i)}" aria-label="${DIAS[i]}">${ini}</button>`).join("")}
+        </div>
+        <span class="cuenta">${marcados.length} × ${pesos(valorDia)}</span>
+      </div>` : ""}
 
       <div class="movimientos">
         ${movs.length ? movs.map(p => `
@@ -709,21 +784,51 @@ function render(){
         ${objetivo ? `<button data-rapido="${Math.round(objetivo/2)}">Mitad</button>` : ""}
       </div>` : ""}
     </div>`;
-  }).join("") || `<div class="vacio">Agregá empleados abajo para empezar.</div>`;
+  }).join("") || `<div class="vacio">Cargá el plantel en Ajustes para empezar.</div>`;
 
   $("r-objetivo").textContent = pesos(totObj);
   $("r-pagado").textContent = pesos(totPag);
   $("r-falta").textContent = pesos(Math.max(0, totObj - totPag));
 
-  $("plantel").innerHTML = (datos.empleados.length
-    ? `<div class="plantel-fila encabezado"><span>nombre</span><span>sueldo por semana</span><span></span></div>`
-    : "") + datos.empleados.map(e => `
-    <div class="plantel-fila" data-emp="${e.id}">
-      <input type="text" data-nombre value="${e.nombre.replace(/"/g,"&quot;")}" placeholder="Nombre">
-      <input type="number" data-semanal value="${e.semanal || ""}" placeholder="$ por semana"
-             step="1000" inputmode="decimal" aria-label="Sueldo por semana de ${e.nombre || "este empleado"}">
-      <button data-quitar aria-label="Quitar">×</button>
-    </div>`).join("");
+  $("plantel").innerHTML = datos.empleados.map(e => {
+    const porDia = e.modo === "dia";
+    const dias = Array.isArray(e.dias) ? e.dias : [];
+    const quien = limpio(e.nombre) || "este empleado";
+    return `
+    <div class="emp" data-emp="${e.id}">
+      <div class="emp-tope">
+        <input type="text" data-nombre value="${limpio(e.nombre)}" placeholder="Nombre">
+        <button data-quitar aria-label="Quitar a ${quien}">×</button>
+      </div>
+      <div class="emp-pago">
+        <select data-modo aria-label="Cómo se le paga a ${quien}">
+          <option value="semana"${porDia ? "" : " selected"}>por semana</option>
+          <option value="dia"${porDia ? " selected" : ""}>por día</option>
+        </select>
+        <input type="number" data-monto value="${e.monto || ""}" step="1000" inputmode="decimal"
+               placeholder="${porDia ? "$ por día" : "$ por semana"}"
+               aria-label="${porDia ? "Valor del día" : "Sueldo por semana"} de ${quien}">
+        ${porDia ? `<input type="number" data-extra value="${e.extra || ""}" step="1000" inputmode="decimal"
+               placeholder="+ cole" aria-label="Extra por día para el cole de ${quien}">` : ""}
+      </div>
+      ${porDia ? `<div class="emp-dias">
+        <span class="rotulo">Días que trabaja normalmente</span>
+        <div class="toggles">
+          ${INICIALES.map((ini, i) => `<button data-dia="${i}" class="${dias.includes(i) ? "si" : ""}"
+             aria-pressed="${dias.includes(i)}" aria-label="${DIAS[i]}">${ini}</button>`).join("")}
+        </div>
+      </div>` : ""}
+      <div class="emp-pie">${
+        porDia
+          ? dias.length
+            ? `${dias.length} día${dias.length === 1 ? "" : "s"} × ${pesos((e.monto || 0) + (e.extra || 0))} = <b>${pesos(objetivoHabitual(e))}</b> por semana`
+            : "Sin días fijos: se marcan semana por semana en Sueldos."
+          : `<b>${pesos(objetivoHabitual(e))}</b> por semana`
+      }</div>
+    </div>`;
+  }).join("") || `<div class="vacio">Todavía no hay nadie cargado.</div>`;
+
+  $("b-plantel-inicial").hidden = datos.empleados.some(e => (e.nombre || "").trim());
 
   pintarFactura();
   pintarCostos();
@@ -737,37 +842,37 @@ function render(){
 
 function semanasCon(n){
   const lista = [];
-  let l = new Date(lunesVista);
+  let l = new Date(inicioVista);
   for (let i = 0; i < n; i++){
-    lista.unshift({ lunes:new Date(l), clave:claveSemana(l) });
+    lista.unshift({ inicio:new Date(l), clave:claveSemana(l) });
     l = new Date(l.getTime() - 7 * 86400000);
   }
   return lista;
 }
 
-function resumenSemana(lunes){
-  const clave = claveSemana(lunes);
-  const domingo = new Date(lunes); domingo.setDate(domingo.getDate() + 6);
+function resumenSemana(inicio){
+  const clave = claveSemana(inicio);
+  const fin = new Date(inicio); fin.setDate(fin.getDate() + 6);
   const dentro = datos.pagos.filter(p => {
     const d = desdeISO(p.fecha);
-    return d >= lunes && d <= domingo;
+    return d >= inicio && d <= fin;
   });
 
   const total = dentro.reduce((a, p) => a + p.monto, 0);
   const objetivo = datos.empleados.reduce((a, e) => a + objetivoDe(e, clave), 0);
 
-  // día de la semana en que se completó cada empleado (1 = lunes)
+  // día de la semana en que se completó cada empleado (1 = domingo)
   const cierres = [];
   let saldados = 0, conObjetivo = 0;
   datos.empleados.forEach(e => {
     const obj = objetivoDe(e, clave);
     if (!obj) return;
     conObjetivo++;
-    const movs = pagosDe(e.id, lunes);
+    const movs = pagosDe(e.id, inicio);
     let acum = 0, cierre = null;
     movs.forEach(p => {
       acum += p.monto;
-      if (cierre === null && acum >= obj) cierre = ((desdeISO(p.fecha).getDay() + 6) % 7) + 1;
+      if (cierre === null && acum >= obj) cierre = desdeISO(p.fecha).getDay() + 1;
     });
     if (cierre !== null){ saldados++; cierres.push(cierre); }
   });
@@ -778,14 +883,12 @@ function resumenSemana(lunes){
     empleados: conObjetivo,
     saldados,
     cierre: cierres.length ? cierres.reduce((a, b) => a + b, 0) / cierres.length : null,
-    ventas: ventasSemana(lunes, clave)
+    ventas: ventasSemana(inicio, clave)
   };
 }
 
-const DIAS = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
-
 function pintarMetricas(){
-  const serie = semanasCon(12).map(s => resumenSemana(s.lunes));
+  const serie = semanasCon(12).map(s => resumenSemana(s.inicio));
   const act = serie[serie.length - 1];
 
   // --- tarjetas ---
@@ -860,7 +963,8 @@ function pintarMetricas(){
     const color = v === 0 ? "#EFEBE3" : ultimo ? "#E4A93C" : "#2F6F7E";
     svg += `<rect x="${x.toFixed(1)}" y="${(base - alto).toFixed(1)}" width="${w.toFixed(1)}" height="${alto.toFixed(1)}" rx="2" fill="${color}"/>`;
     if (i % 2 === 0 || ultimo){
-      const d = s.clave.slice(-3).replace("W", "s");
+      const f = desdeISO(s.clave);
+      const d = `${f.getDate()}/${f.getMonth() + 1}`;
       svg += `<text x="${(x + w / 2).toFixed(1)}" y="${H - 5}" font-size="8" fill="#79828B" text-anchor="middle" font-family="sans-serif">${d}</text>`;
     }
   });
@@ -879,11 +983,11 @@ function pintarMetricas(){
 
 function registrar(empId, monto, medio){
   if (!(monto > 0)) return;
-  const clave = claveSemana(lunesVista);
+  const clave = claveSemana(inicioVista);
   congelar(clave);
-  // se imputa al día de hoy si la semana es la actual; si no, al lunes de esa semana
+  // se imputa al día de hoy si la semana es la actual; si no, al domingo de esa semana
   const hoy = new Date();
-  const fecha = claveSemana(lunesDe(hoy)) === clave ? iso(hoy) : iso(lunesVista);
+  const fecha = claveSemana(inicioDe(hoy)) === clave ? iso(hoy) : iso(inicioVista);
   op({ t:"pago+", pago:{ id:uid(), empId, fecha, monto, medio } });
   render();
 }
@@ -905,6 +1009,17 @@ $("fichas").addEventListener("click", e => {
     op({ t:"pago-", id:e.target.dataset.borrar });
     render();
   }
+  if (e.target.matches("[data-dia]")){
+    const clave = claveSemana(inicioVista);
+    const emp = datos.empleados.find(x => x.id === empId);
+    const dia = +e.target.dataset.dia;
+    const puestos = diasTrabajados(emp, clave);
+    op({ t:"dias=", clave, empId, dias: puestos.includes(dia)
+      ? puestos.filter(x => x !== dia)
+      : puestos.concat(dia).sort((a, b) => a - b) });
+    const scroll = window.scrollY;
+    render(); window.scrollTo(0, scroll);
+  }
 });
 
 $("fichas").addEventListener("keydown", e => {
@@ -913,52 +1028,108 @@ $("fichas").addEventListener("keydown", e => {
   }
 });
 
-$("plantel").addEventListener("input", e => {
-  const id = e.target.closest("[data-emp]").dataset.emp;
-  const esNombre = e.target.matches("[data-nombre]");
-  if (esNombre) op({ t:"emp=", id, nombre:e.target.value });
-  else if (e.target.matches("[data-semanal]")) op({ t:"emp=", id, semanal:parseFloat(e.target.value) || 0 });
-  else return;
-
-  // mientras la semana no tenga pagos, el objetivo sigue al sueldo editado
-  const clave = claveSemana(lunesVista);
+/* Al editar una tarifa, la semana que se está mirando vuelve a seguirla:
+   sirve para corregir un monto mal cargado. Pero si a esa persona ya se le
+   pagó algo esa semana, la semana no se toca — si no, un aumento cargado un
+   viernes reescribiría hacia atrás lo que ya se cobró. El aumento entra
+   entonces desde la semana siguiente, que es como funciona de verdad. */
+function descongelar(id){
+  if (pagosDe(id, inicioVista).length) return;
+  const clave = claveSemana(inicioVista);
   if (datos.objetivos[clave] && datos.objetivos[clave][id] != null)
     op({ t:"obj-", clave, empId:id });
+}
 
-  // render() rehace el plantel entero, así que hay que devolver el foco y el cursor
-  const pos = esNombre ? e.target.selectionStart : null;
+$("plantel").addEventListener("input", e => {
+  const fila = e.target.closest("[data-emp]");
+  if (!fila) return;
+  const id = fila.dataset.emp;
+  const numero = parseFloat(e.target.value) || 0;
+  let campo;
+
+  if (e.target.matches("[data-nombre]")){ campo = "nombre"; op({ t:"emp=", id, nombre:e.target.value }); }
+  else if (e.target.matches("[data-modo]")){ campo = "modo";  op({ t:"emp=", id, modo:e.target.value }); }
+  else if (e.target.matches("[data-monto]")){ campo = "monto"; op({ t:"emp=", id, monto:numero }); }
+  else if (e.target.matches("[data-extra]")){ campo = "extra"; op({ t:"emp=", id, extra:numero }); }
+  else return;
+
+  descongelar(id);
+
+  // render() rehace las tarjetas, así que hay que devolver el foco y el cursor
+  const pos = campo === "nombre" ? e.target.selectionStart : null;
   const scroll = window.scrollY;
   render(); window.scrollTo(0, scroll);
-  const fila = $("plantel").querySelector(`[data-emp="${id}"]`);
-  const campo = fila && fila.querySelector(esNombre ? "[data-nombre]" : "[data-semanal]");
-  if (campo){
-    campo.focus();
-    if (pos !== null) try { campo.setSelectionRange(pos, pos); } catch (err){}
+  const nuevo = $("plantel").querySelector(`[data-emp="${id}"] [data-${campo}]`);
+  if (nuevo){
+    nuevo.focus();
+    if (pos !== null) try { nuevo.setSelectionRange(pos, pos); } catch (err){}
   }
 });
 
 $("plantel").addEventListener("click", e => {
-  if (!e.target.matches("[data-quitar]")) return;
-  const id = e.target.closest("[data-emp]").dataset.emp;
-  const emp = datos.empleados.find(x => x.id === id);
-  if (!confirm(`¿Quitar a ${emp.nombre || "este empleado"}? Se borran también sus pagos registrados.`)) return;
-  op({ t:"emp-", id });
-  render();
+  const fila = e.target.closest("[data-emp]");
+  if (!fila) return;
+  const id = fila.dataset.emp;
+
+  if (e.target.matches("[data-dia]")){
+    const emp = datos.empleados.find(x => x.id === id);
+    const dia = +e.target.dataset.dia;
+    const puestos = Array.isArray(emp.dias) ? emp.dias : [];
+    op({ t:"emp=", id, dias: puestos.includes(dia)
+      ? puestos.filter(x => x !== dia)
+      : puestos.concat(dia).sort((a, b) => a - b) });
+    descongelar(id);
+    const scroll = window.scrollY;
+    render(); window.scrollTo(0, scroll);
+    return;
+  }
+
+  if (e.target.matches("[data-quitar]")){
+    const emp = datos.empleados.find(x => x.id === id);
+    if (!confirm(`¿Quitar a ${emp.nombre || "este empleado"}? Se borran también sus pagos registrados.`)) return;
+    op({ t:"emp-", id });
+    render();
+  }
+});
+
+const nuevoEmpleado = () => ({
+  id:uid(), nombre:"", modo:"semana", monto:0, extra:0, dias:TODOS_LOS_DIAS.slice()
 });
 
 $("b-sumar").addEventListener("click", () => {
-  op({ t:"emp+", emp:{ id:uid(), nombre:"", semanal:0 } });
+  op({ t:"emp+", emp:nuevoEmpleado() });
   render();
   const ultimo = $("plantel").lastElementChild;
-  if (ultimo) ultimo.querySelector("[data-nombre]").focus();
+  const campo = ultimo && ultimo.querySelector("[data-nombre]");
+  if (campo) campo.focus();
+});
+
+// Lo que cobra cada uno al 14 de septiembre de 2026. Se ofrece una sola vez,
+// cuando todavía no hay nadie cargado; después se edita acá mismo.
+const PLANTEL_INICIAL = [
+  { nombre:"Walter",  modo:"semana", monto:420000, extra:0,    dias:TODOS_LOS_DIAS.slice() },
+  { nombre:"German",  modo:"dia",    monto:40000,  extra:8000, dias:[0,2,3,4,5,6] },
+  { nombre:"Meli",    modo:"semana", monto:215000, extra:0,    dias:TODOS_LOS_DIAS.slice() },
+  { nombre:"Martina", modo:"semana", monto:150000, extra:0,    dias:TODOS_LOS_DIAS.slice() },
+  { nombre:"Ariana",  modo:"semana", monto:120000, extra:0,    dias:TODOS_LOS_DIAS.slice() },
+  { nombre:"Bereniz", modo:"dia",    monto:21430,  extra:0,    dias:[] }
+];
+
+$("b-plantel-inicial").addEventListener("click", () => {
+  if (!confirm(
+    "Se agregan Walter, German, Meli, Martina, Ariana y Bereniz con lo que cobra cada uno.\n\n" +
+    "German va por día (no trabaja los lunes) y Bereniz también, pero sin días fijos: " +
+    "los suyos se marcan en Sueldos, semana por semana.\n\n¿Los cargamos?")) return;
+  PLANTEL_INICIAL.forEach(e => op({ t:"emp+", emp:Object.assign({ id:uid() }, e, { dias:e.dias.slice() }) }));
+  render();
 });
 
 $("sem-antes").addEventListener("click", () => {
-  lunesVista = new Date(lunesVista.getTime() - 7 * 86400000);
+  inicioVista = new Date(inicioVista.getTime() - 7 * 86400000);
   render();
 });
 $("sem-despues").addEventListener("click", () => {
-  lunesVista = new Date(lunesVista.getTime() + 7 * 86400000);
+  inicioVista = new Date(inicioVista.getTime() + 7 * 86400000);
   render();
 });
 
@@ -999,12 +1170,12 @@ $("archivo").addEventListener("change", e => {
 });
 
 $("b-planilla").addEventListener("click", () => {
-  const filas = [["semana","fecha","empleado","monto","medio","objetivo_semanal"]];
+  const filas = [["semana_desde","fecha","empleado","monto","medio","le_corresponde_esa_semana"]];
   datos.pagos
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
     .forEach(p => {
       const emp = datos.empleados.find(e => e.id === p.empId);
-      const clave = claveSemana(lunesDe(desdeISO(p.fecha)));
+      const clave = claveSemana(inicioDe(desdeISO(p.fecha)));
       filas.push([clave, p.fecha, emp ? emp.nombre : "(borrado)", p.monto, p.medio,
                   emp ? objetivoDe(emp, clave) : ""]);
     });
@@ -1046,14 +1217,46 @@ function guardarSinc(){
 
 function normalizar(d){
   d = d || {};
-  return {
+  return migrar({
     empleados: Array.isArray(d.empleados) ? d.empleados : [],
     pagos:     Array.isArray(d.pagos)     ? d.pagos     : [],
     turnos:    d.turnos    && typeof d.turnos    === "object" ? d.turnos    : {},
     gastos:    Array.isArray(d.gastos)    ? d.gastos    : [],
+    dias:      d.dias      && typeof d.dias      === "object" ? d.dias      : {},
     ventas:    d.ventas    && typeof d.ventas    === "object" ? d.ventas    : {},
     objetivos: d.objetivos && typeof d.objetivos === "object" ? d.objetivos : {}
-  };
+  });
+}
+
+/* Datos de versiones anteriores de la app. Tiene que poder correr dos
+   veces sobre lo mismo sin romper nada: pasa por acá todo lo que llega
+   del servidor, no solo lo que estaba guardado en este navegador. */
+function migrar(d){
+  // antes todos cobraban por semana y el campo se llamaba "semanal"
+  d.empleados.forEach(e => {
+    if (e.monto === undefined){
+      e.modo  = "semana";
+      e.monto = e.semanal || 0;
+      e.extra = 0;
+      e.dias  = TODOS_LOS_DIAS.slice();
+      delete e.semanal;
+    }
+  });
+
+  // y la semana se nombraba con la numeración ISO, que arranca el lunes
+  ["objetivos", "ventas"].forEach(campo => {
+    Object.keys(d[campo]).forEach(k => {
+      const m = /^(\d{4})-W(\d{2})$/.exec(k);
+      if (!m) return;
+      const base = new Date(+m[1], 0, 4);              // el 4 de enero cae en la semana ISO 1
+      base.setHours(12,0,0,0);
+      base.setDate(base.getDate() - ((base.getDay() + 6) % 7) + (+m[2] - 1) * 7);
+      d[campo][claveSemana(inicioDe(base))] = d[campo][k];
+      delete d[campo][k];
+    });
+  });
+
+  return d;
 }
 
 /* --- las operaciones --- */
@@ -1070,8 +1273,11 @@ function aplicar(d, o){
     case "emp=": {
       const e = d.empleados.find(x => x.id === o.id);
       if (e){
-        if (o.nombre  !== undefined) e.nombre  = o.nombre;
-        if (o.semanal !== undefined) e.semanal = o.semanal;
+        if (o.nombre !== undefined) e.nombre = o.nombre;
+        if (o.modo   !== undefined) e.modo   = o.modo;
+        if (o.monto  !== undefined) e.monto  = o.monto;
+        if (o.extra  !== undefined) e.extra  = o.extra;
+        if (o.dias   !== undefined) e.dias   = o.dias.slice();
       }
       break;
     }
@@ -1103,10 +1309,14 @@ function aplicar(d, o){
     case "obj-":
       if (d.objetivos[o.clave]) delete d.objetivos[o.clave][o.empId];
       break;
+    case "dias=":
+      if (!d.dias[o.clave]) d.dias[o.clave] = {};
+      d.dias[o.clave][o.empId] = o.dias.slice();
+      break;
     case "todo=": {
       const n = normalizar(o.datos);
       d.empleados = n.empleados; d.pagos = n.pagos; d.turnos = n.turnos;
-      d.gastos = n.gastos; d.ventas = n.ventas; d.objetivos = n.objetivos;
+      d.gastos = n.gastos; d.dias = n.dias; d.ventas = n.ventas; d.objetivos = n.objetivos;
       break;
     }
   }

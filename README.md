@@ -12,11 +12,22 @@ pagos), **Caja** (facturación por turno, costos y neto), **Números** (los
 indicadores de las últimas doce semanas) y **Ajustes** (plantel, sincronización
 y respaldo). La semana queda fija arriba y vale para todas.
 
+La semana de la panadería va de **domingo a sábado**, y se la nombra por la
+fecha de su domingo (`2026-09-13`).
+
 - Semana de lunes a domingo, con flechas para moverse entre semanas.
-- Ficha por empleado: sueldo semanal objetivo, lo entregado y lo que falta.
+- Ficha por empleado: lo que le corresponde en la semana, lo entregado y lo que
+  falta.
+- Dos formas de pago: **sueldo fijo por semana**, o **por día trabajado** más un
+  extra por día para el cole. En el segundo caso la semana sale de los días
+  trabajados, que se marcan en la ficha semana por semana: hay gente que cubre
+  turnos sueltos y no tiene días fijos.
 - Registro de cada entrega con fecha y medio (transferencia / efectivo).
-- El objetivo semanal **se congela** al registrar el primer pago de esa semana,
-  así un aumento de sueldo no reescribe el historial.
+- La tarifa **se congela** al registrar el primer pago de la semana, así un
+  aumento no reescribe el historial. Los días trabajados no se congelan: son un
+  hecho de esa semana y se siguen marcando. Y un aumento cargado sobre una
+  semana en la que esa persona ya cobró algo empieza a valer la semana
+  siguiente, en lugar de reescribir lo que ya se pagó.
 - Facturación por turno: al cierre de cada turno (mañana y tarde) se carga el
   monto y el total de la semana se suma solo.
 - Costos generales de la semana, cargados uno por uno con su concepto.
