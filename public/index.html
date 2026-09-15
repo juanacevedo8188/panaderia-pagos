@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pagos semanales — Panadería Avenida</title>
+<title>Panadería Avenida — Control semanal</title>
 <style>
 /* ============================================================
    TOKENS
@@ -34,8 +34,8 @@ input,select,button{font:inherit;color:inherit}
 /* ============================================================
    ENCABEZADO
    ============================================================ */
-.tope{background:var(--azulejo);color:#fff;padding:1.2rem 0 1.3rem}
-.tope h1{font-size:1.4rem}
+.tope{background:var(--azulejo);color:#fff;padding:.95rem 0 1rem}
+.tope h1{font-size:1.3rem}
 .tope p{margin:.2rem 0 0;font-size:.85rem;color:#CFE2E6}
 .tope-patron{
   height:8px;
@@ -46,12 +46,18 @@ input,select,button{font:inherit;color:inherit}
 /* ============================================================
    SEMANA
    ============================================================ */
+.barra-semana{
+  position:sticky;top:0;z-index:5;
+  background:var(--papel);border-bottom:1px solid var(--linea);
+  padding:.6rem 1rem;
+}
 .semana{
   display:flex;align-items:center;justify-content:space-between;gap:.8rem;
+  max-width:760px;margin:0 auto;
   background:#fff;border:1px solid var(--linea);border-radius:8px;
-  padding:.7rem .8rem;margin:1.1rem 0;
+  padding:.55rem .7rem;box-shadow:0 1px 2px rgba(28,43,54,.05);
 }
-.semana strong{font-size:.98rem}
+.semana strong{font-size:.96rem;white-space:nowrap}
 .semana small{display:block;font-size:.76rem;color:var(--gris);font-weight:400}
 .semana button{
   width:34px;height:34px;border-radius:17px;border:1px solid var(--linea);
@@ -63,9 +69,10 @@ input,select,button{font:inherit;color:inherit}
    RESUMEN
    ============================================================ */
 .resumen{
-  background:var(--tinta);color:#fff;border-radius:8px;
-  padding:1rem;margin-bottom:1.1rem;
+  background:var(--tinta);color:#fff;border-radius:10px;
+  padding:1rem 1.1rem;margin-bottom:.9rem;
   display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;
+  box-shadow:0 1px 3px rgba(28,43,54,.12);
 }
 .resumen div{min-width:0}
 .resumen .valor{font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
@@ -78,7 +85,7 @@ input,select,button{font:inherit;color:inherit}
    ============================================================ */
 .ficha{
   background:#fff;border:1px solid var(--linea);border-radius:8px;
-  padding:.9rem;margin-bottom:.7rem;
+  padding:.9rem;margin-bottom:.7rem;box-shadow:0 1px 2px rgba(28,43,54,.04);
 }
 .ficha.saldada{border-color:#B7D7C5;background:#F6FBF8}
 .ficha-tope{display:flex;align-items:baseline;justify-content:space-between;gap:.8rem}
@@ -125,15 +132,21 @@ input,select,button{font:inherit;color:inherit}
 /* ============================================================
    PLANTEL
    ============================================================ */
-.seccion{margin-top:2rem}
-.seccion > h2{font-size:1.02rem;color:var(--azulejo);margin-bottom:.15rem}
-.seccion > p{margin:0 0 .8rem;font-size:.83rem;color:var(--gris)}
+.seccion{margin-top:2.1rem}
+.seccion:first-of-type{margin-top:1.2rem}
+.seccion > h2{
+  display:flex;align-items:center;gap:.6rem;
+  font-size:.74rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--azulejo);margin-bottom:.5rem;
+}
+.seccion > h2::after{content:"";flex:1;height:1px;background:var(--linea)}
+.seccion > p{margin:-.1rem 0 .8rem;font-size:.83rem;color:var(--gris);max-width:62ch}
 /* ============================================================
    MÉTRICAS
    ============================================================ */
 .factura{
   background:#fff;border:1px solid var(--linea);border-radius:8px;
-  padding:.85rem .9rem;margin-bottom:1.1rem;
+  padding:.85rem .9rem;box-shadow:0 1px 2px rgba(28,43,54,.04);
 }
 .factura .total{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;font-size:.87rem}
 .factura .total b{font-size:1.25rem;font-variant-numeric:tabular-nums}
@@ -144,7 +157,7 @@ input,select,button{font:inherit;color:inherit}
 
 .neto{
   background:#fff;border:1px solid var(--linea);border-radius:8px;
-  padding:.85rem .9rem;margin-bottom:1.1rem;
+  padding:.85rem .9rem;box-shadow:0 1px 2px rgba(28,43,54,.04);
 }
 .neto .linea{
   display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;
@@ -156,15 +169,21 @@ input,select,button{font:inherit;color:inherit}
 .neto .final b{font-size:1.25rem;font-weight:600}
 .neto .final.bien b{color:var(--verde)}
 .neto .final.mal b{color:var(--alerta)}
-.tarjetas{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.1rem}
-.tarjeta{background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.8rem}
+.tarjetas{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.7rem}
+.tarjeta{
+  background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.8rem;
+  box-shadow:0 1px 2px rgba(28,43,54,.04);
+}
 .tarjeta .valor{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
 .tarjeta .rotulo{font-size:.76rem;color:var(--gris);margin-top:.1rem}
 .tarjeta .pie{font-size:.74rem;color:var(--gris);margin-top:.35rem}
 .tarjeta.alta .valor{color:var(--alerta)}
 .tarjeta.buena .valor{color:var(--verde)}
 
-.grafico{background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.9rem}
+.grafico{
+  background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.9rem;
+  box-shadow:0 1px 2px rgba(28,43,54,.04);
+}
 .grafico h3{font-size:.92rem;margin-bottom:.7rem}
 .grafico svg{width:100%;height:auto;display:block}
 .graf-pie{font-size:.76rem;color:var(--gris);margin:.6rem 0 0}
@@ -205,6 +224,7 @@ input,select,button{font:inherit;color:inherit}
 .sinc{
   display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
   background:#fff;border:1px solid var(--linea);border-radius:8px;padding:.7rem .8rem;
+  box-shadow:0 1px 2px rgba(28,43,54,.04);
 }
 .sinc .punto{width:9px;height:9px;border-radius:5px;background:var(--gris);flex:0 0 auto}
 .sinc .punto.ok{background:var(--verde)}
@@ -225,12 +245,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
 <body>
 
 <header class="tope">
-  <div class="envoltorio"><h1>Pagos semanales</h1><p>Panadería Avenida</p></div>
+  <div class="envoltorio"><h1>Panadería Avenida</h1><p>Control semanal de sueldos, facturación y costos</p></div>
 </header>
 <div class="tope-patron"></div>
 
-<div class="envoltorio">
-
+<div class="barra-semana">
   <div class="semana">
     <button id="sem-antes" aria-label="Semana anterior">‹</button>
     <div class="centro">
@@ -239,25 +258,42 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     </div>
     <button id="sem-despues" aria-label="Semana siguiente">›</button>
   </div>
+</div>
 
-  <div class="resumen">
-    <div><div class="valor num" id="r-objetivo">$0</div><div class="rotulo">A pagar</div></div>
-    <div class="listo"><div class="valor num" id="r-pagado">$0</div><div class="rotulo">Entregado</div></div>
-    <div class="falta"><div class="valor num" id="r-falta">$0</div><div class="rotulo">Falta</div></div>
-  </div>
-
-  <div id="fichas"></div>
+<div class="envoltorio">
 
   <section class="seccion">
-    <h2>Números</h2>
-    <p>Al cierre de cada turno cargás el monto y listo: la semana se suma sola. Abajo van los costos y queda el neto.</p>
+    <h2>Sueldos</h2>
+    <div class="resumen">
+      <div><div class="valor num" id="r-objetivo">$0</div><div class="rotulo">A pagar</div></div>
+      <div class="listo"><div class="valor num" id="r-pagado">$0</div><div class="rotulo">Entregado</div></div>
+      <div class="falta"><div class="valor num" id="r-falta">$0</div><div class="rotulo">Falta</div></div>
+    </div>
+    <div id="fichas"></div>
+  </section>
 
+  <section class="seccion">
+    <h2>Facturación</h2>
+    <p>Al cierre de cada turno cargás el monto y la semana se suma sola.</p>
     <div class="factura" id="factura"></div>
+  </section>
+
+  <section class="seccion">
+    <h2>Costos</h2>
+    <p>Todo lo que se gastó en la semana además de los sueldos: mercadería, servicios, impuestos.</p>
     <div class="factura" id="costos"></div>
+  </section>
+
+  <section class="seccion">
+    <h2>Resultado</h2>
+    <p>Lo que queda de la facturación después de los sueldos y los costos.</p>
     <div class="neto" id="neto"></div>
+  </section>
 
+  <section class="seccion">
+    <h2>Indicadores</h2>
+    <p>Las últimas doce semanas. La nómina sobre ventas es el único número que no se distorsiona con la inflación.</p>
     <div class="tarjetas" id="tarjetas"></div>
-
     <div class="grafico">
       <h3 id="graf-titulo">Costo de personal por semana</h3>
       <div id="graf"></div>
@@ -584,8 +620,10 @@ function render(){
   const clave = claveSemana(lunesVista);
   const domingo = new Date(lunesVista); domingo.setDate(domingo.getDate() + 6);
 
-  $("sem-rango").textContent =
-    `${lunesVista.getDate()} de ${MESES[lunesVista.getMonth()]} al ${domingo.getDate()} de ${MESES[domingo.getMonth()]}`;
+  // en el celular la barra fija tiene que entrar en una línea
+  $("sem-rango").textContent = lunesVista.getMonth() === domingo.getMonth()
+    ? `${lunesVista.getDate()} al ${domingo.getDate()} de ${MESES[lunesVista.getMonth()]}`
+    : `${lunesVista.getDate()} de ${MESES[lunesVista.getMonth()].slice(0,3)} al ${domingo.getDate()} de ${MESES[domingo.getMonth()].slice(0,3)}`;
   const estaSemana = claveSemana(lunesDe(new Date())) === clave;
   $("sem-nota").textContent = estaSemana ? "Semana en curso" : clave;
   $("sem-despues").disabled = false;
