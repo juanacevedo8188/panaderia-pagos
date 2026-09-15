@@ -516,6 +516,15 @@ function objetivoDe(emp, clave){
     : t.monto;
 }
 
+function pieDe(e){
+  const dias = Array.isArray(e.dias) ? e.dias : [];
+  if (e.modo !== "dia") return `<b>${pesos(objetivoHabitual(e))}</b> por semana`;
+  return dias.length
+    ? `${dias.length} día${dias.length === 1 ? "" : "s"} × ${pesos((e.monto || 0) + (e.extra || 0))}`
+      + ` = <b>${pesos(objetivoHabitual(e))}</b> por semana`
+    : "Sin días fijos: se marcan semana por semana en Sueldos.";
+}
+
 // lo que sale una semana con los días de siempre, para mostrarlo en Ajustes
 function objetivoHabitual(emp){
   return emp.modo === "dia"
@@ -818,13 +827,7 @@ function render(){
              aria-pressed="${dias.includes(i)}" aria-label="${DIAS[i]}">${ini}</button>`).join("")}
         </div>
       </div>` : ""}
-      <div class="emp-pie">${
-        porDia
-          ? dias.length
-            ? `${dias.length} día${dias.length === 1 ? "" : "s"} × ${pesos((e.monto || 0) + (e.extra || 0))} = <b>${pesos(objetivoHabitual(e))}</b> por semana`
-            : "Sin días fijos: se marcan semana por semana en Sueldos."
-          : `<b>${pesos(objetivoHabitual(e))}</b> por semana`
-      }</div>
+      <div class="emp-pie">${pieDe(e)}</div>
     </div>`;
   }).join("") || `<div class="vacio">Todavía no hay nadie cargado.</div>`;
 
@@ -1040,30 +1043,38 @@ function descongelar(id){
     op({ t:"obj-", clave, empId:id });
 }
 
+/* Mientras se escribe NO se rehace la tarjeta. Antes se llamaba a render()
+   en cada tecla: el campo se reemplazaba por uno nuevo, el cursor volvía al
+   principio y los números salían al revés (escribías 420 y quedaba 024).
+   Lo único que se actualiza en el momento es el pie de esa tarjeta; el resto
+   de la app vive en pestañas que están ocultas y se rehace al cambiar de
+   pestaña o de semana. */
 $("plantel").addEventListener("input", e => {
   const fila = e.target.closest("[data-emp]");
   if (!fila) return;
   const id = fila.dataset.emp;
   const numero = parseFloat(e.target.value) || 0;
-  let campo;
 
-  if (e.target.matches("[data-nombre]")){ campo = "nombre"; op({ t:"emp=", id, nombre:e.target.value }); }
-  else if (e.target.matches("[data-modo]")){ campo = "modo";  op({ t:"emp=", id, modo:e.target.value }); }
-  else if (e.target.matches("[data-monto]")){ campo = "monto"; op({ t:"emp=", id, monto:numero }); }
-  else if (e.target.matches("[data-extra]")){ campo = "extra"; op({ t:"emp=", id, extra:numero }); }
+  if (e.target.matches("[data-modo]")){
+    // acá sí hay que rehacer: cambia si aparece el cole y los días
+    op({ t:"emp=", id, modo:e.target.value });
+    descongelar(id);
+    const scroll = window.scrollY;
+    render(); window.scrollTo(0, scroll);
+    const sel = $("plantel").querySelector(`[data-emp="${id}"] [data-modo]`);
+    if (sel) sel.focus();
+    return;
+  }
+
+  if (e.target.matches("[data-nombre]")) op({ t:"emp=", id, nombre:e.target.value });
+  else if (e.target.matches("[data-monto]")) op({ t:"emp=", id, monto:numero });
+  else if (e.target.matches("[data-extra]")) op({ t:"emp=", id, extra:numero });
   else return;
 
   descongelar(id);
-
-  // render() rehace las tarjetas, así que hay que devolver el foco y el cursor
-  const pos = campo === "nombre" ? e.target.selectionStart : null;
-  const scroll = window.scrollY;
-  render(); window.scrollTo(0, scroll);
-  const nuevo = $("plantel").querySelector(`[data-emp="${id}"] [data-${campo}]`);
-  if (nuevo){
-    nuevo.focus();
-    if (pos !== null) try { nuevo.setSelectionRange(pos, pos); } catch (err){}
-  }
+  const emp = datos.empleados.find(x => x.id === id);
+  const pie = fila.querySelector(".emp-pie");
+  if (emp && pie) pie.innerHTML = pieDe(emp);
 });
 
 $("plantel").addEventListener("click", e => {
@@ -1534,6 +1545,10 @@ function verPanel(cual, mover = true){
     b.classList.toggle("activa", n === cual);
     b.setAttribute("aria-selected", n === cual);
   });
+
+  // el plantel se edita sin rehacer el resto, así que al salir de una
+  // pestaña hay que poner al día la que se muestra
+  render();
 
   try { localStorage.setItem(CLAVE_PANEL, cual); } catch (e){}
   if (mover) window.scrollTo(0, 0);
