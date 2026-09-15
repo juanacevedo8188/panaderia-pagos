@@ -1239,7 +1239,7 @@ $("b-planilla").addEventListener("click", () => {
       filas.push([clave, p.fecha, emp ? emp.nombre : "(borrado)", p.monto, p.medio,
                   emp ? objetivoDe(emp, clave) : ""]);
     });
-  const csv = filas.map(f => f.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const csv = filas.map(f => f.map(celdaCSV).join(",")).join("\n");
   bajar(`pagos-${iso(new Date())}.csv`, "\uFEFF" + csv, "text/csv;charset=utf-8");
 });
 
