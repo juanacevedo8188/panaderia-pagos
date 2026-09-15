@@ -292,12 +292,12 @@ input,select,button{font:inherit;color:inherit}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);outline-offset:1px}
 </style>
 <link rel="stylesheet" href="/avenida.css">
-<meta name="theme-color" content="#174D43">
+<meta name="theme-color" content="#353D68">
 </head>
 <body>
 
 <header class="tope">
-  <div class="envoltorio marca"><div class="marca-icono" aria-hidden="true">A<span>·</span></div><div><p class="marca-kicker">PANADERÍA</p><h1>Avenida</h1></div><div class="marca-derecha"><span>Administración del negocio</span><button id="estado-global" aria-live="polite" onclick="verPanel('ajustes')">Solo en este dispositivo</button></div></div>
+  <div class="envoltorio marca"><img class="logo-real" src="/logo-avenida.png" alt="Avenida Bakery & Candyshop"><h1 class="solo-lector">Avenida — Administración</h1><div class="marca-derecha"><span>Administración del negocio</span><button id="tema-toggle" type="button" aria-pressed="false">☾ Modo oscuro</button><button id="estado-global" aria-live="polite" onclick="verPanel('ajustes')">Solo en este dispositivo</button></div></div>
 </header>
 <div class="tope-patron"></div>
 
@@ -1647,6 +1647,24 @@ document.addEventListener("wheel", e => {
   if (document.activeElement === e.target &&
       e.target.tagName === "INPUT" && e.target.type === "number") e.target.blur();
 }, { passive:true });
+
+/* Tema visual: preferencia local independiente de los registros. */
+let temaOscuro = false;
+try {
+  const elegido = localStorage.getItem("avenida-tema");
+  temaOscuro = elegido ? elegido === "oscuro" : !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+} catch(e){}
+function aplicarTema(){
+  if (document.documentElement) document.documentElement.dataset.tema = temaOscuro ? "oscuro" : "claro";
+  $("tema-toggle").textContent = temaOscuro ? "☀ Modo claro" : "☾ Modo oscuro";
+  $("tema-toggle").setAttribute("aria-pressed", String(temaOscuro));
+}
+$("tema-toggle").addEventListener("click", () => {
+  temaOscuro = !temaOscuro;
+  try { localStorage.setItem("avenida-tema", temaOscuro ? "oscuro" : "claro"); } catch(e){}
+  aplicarTema();
+});
+aplicarTema();
 
 /* Tablero: solamente deriva valores. Nunca modifica registros al renderizar. */
 function balanceSemana(inicio){
