@@ -24,7 +24,10 @@ const json = (cuerpo, estado = 200) =>
     headers: { "content-type": "application/json", "cache-control": "no-store" }
   });
 
-export default async (req) => {
+export function crearHandler(almacen = getStore){
+return async (req) => {
+  if (process.env.CONTEXT && process.env.CONTEXT !== "production" && process.env.CONTEXT !== "dev")
+    return json({ error: "vista-previa", mensaje: "La vista previa no accede a la planilla compartida." }, 403);
   const esperada = process.env.CLAVE_PANADERIA;
 
   // Sin clave configurada no se guarda nada: mejor fallar de entrada
@@ -36,7 +39,7 @@ export default async (req) => {
   if (!timingSafeEqual(huella(req.headers.get("x-clave") || ""), huella(esperada)))
     return json({ error: "clave" }, 401);
 
-  const store = getStore({ name: "panaderia", consistency: "strong" });
+  const store = almacen({ name: "panaderia", consistency: "strong" });
 
   if (req.method === "GET") {
     const doc = await store.get(LLAVE, { type: "json" });
@@ -49,10 +52,11 @@ export default async (req) => {
     catch { return json({ error: "json" }, 400); }
 
     const { version, datos } = cuerpo || {};
-    if (typeof version !== "number" || !datos || typeof datos !== "object")
+    if (!Number.isSafeInteger(version) || version < 0 || !datos || typeof datos !== "object" || Array.isArray(datos) || !Array.isArray(datos.empleados) || !Array.isArray(datos.pagos))
       return json({ error: "formato" }, 400);
 
-    const actual = await store.get(LLAVE, { type: "json" });
+    const lectura = await store.getWithMetadata(LLAVE, { type: "json" });
+    const actual = lectura ? lectura.data : null;
     const vActual = actual ? actual.version : 0;
 
     // Alguien guardó entre que este dispositivo leyó y escribió:
@@ -61,9 +65,19 @@ export default async (req) => {
       return json({ error: "desfasado", version: vActual, datos: actual ? actual.datos : null }, 409);
 
     const nuevo = { version: vActual + 1, datos, fecha: new Date().toISOString() };
-    await store.setJSON(LLAVE, nuevo);
+    // El ETag hace indivisible la comprobación y escritura en Blobs.
+    if (lectura && !lectura.etag) return json({ error: "sin-etag" }, 503);
+    const escritura = await store.setJSON(LLAVE, nuevo,
+      lectura ? { onlyIfMatch:lectura.etag } : { onlyIfNew:true });
+    if (!escritura.modified){
+      const remoto = await store.get(LLAVE, { type:"json" });
+      return json({ error:"desfasado", version:remoto?.version || 0, datos:remoto?.datos || null },409);
+    }
     return json({ version: nuevo.version, fecha: nuevo.fecha });
   }
 
   return json({ error: "metodo" }, 405);
 };
+
+}
+export default crearHandler();

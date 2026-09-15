@@ -7,7 +7,7 @@ vean lo mismo.
 
 ## Qué hace
 
-Cuatro pestañas: **Sueldos** (lo que se le debe a cada uno y el registro de
+La versión inicial tiene cuatro pestañas: **Sueldos** (lo que se le debe a cada uno y el registro de
 pagos), **Caja** (facturación por turno, costos y neto), **Números** (los
 indicadores de las últimas doce semanas) y **Ajustes** (plantel, sincronización
 y respaldo). La semana queda fija arriba y vale para todas.
@@ -15,7 +15,7 @@ y respaldo). La semana queda fija arriba y vale para todas.
 La semana de la panadería va de **domingo a sábado**, y se la nombra por la
 fecha de su domingo (`2026-09-13`).
 
-- Semana de lunes a domingo, con flechas para moverse entre semanas.
+- Semana de domingo a sábado, con flechas para moverse entre semanas.
 - Ficha por empleado: lo que le corresponde en la semana, lo entregado y lo que
   falta.
 - Dos formas de pago: **sueldo fijo por semana**, o **por día trabajado** más un
@@ -113,3 +113,41 @@ Este registro es control interno y no reemplaza el recibo de sueldo. Los pagos
 a cuenta deben figurar en el recibo del período y, según el art. 130 de la LCT,
 los adelantos no pueden superar el 50% de la remuneración. Confirmar con el
 contador cómo se documentan estas entregas.
+
+## Tablero Avenida (versión propuesta)
+
+- Inicio adaptable a celular y computadora: ventas por día/turno, pendientes
+  individuales, gastos y resultado estimado con aviso de semana incompleta.
+- Búsqueda y filtro del personal; exportación de movimientos de la semana.
+- Nombre opcional del operador por dispositivo en pagos y gastos nuevos.
+- Baja desde la semana siguiente sin eliminar el empleado ni sus pagos.
+- Confirmación antes de borrar pagos/gastos/turnos o reemplazar un turno.
+- Pendientes individuales sin compensar excedentes de otras personas.
+- Costo salarial sobre ventas basado en lo previsto, no en lo entregado.
+- Escrituras condicionales con ETag en Blobs y conservación de cambios
+  agregados mientras un lote espera confirmación.
+
+### Probar sin datos reales
+
+Abrir `/?demo=1`. Los nombres e importes son ficticios, el almacenamiento local
+es independiente y este modo bloquea el acceso a la API compartida. Las funciones
+en contextos Netlify distintos de `production` y `dev` rechazan el acceso a datos.
+No configurar claves de producción para una demostración independiente.
+
+### Publicación y límites
+
+La propuesta se prepara en una rama. Antes de incorporarla: sincronizar los dos
+navegadores, descargar respaldo y recargar ambos después de publicar; una pestaña
+con la versión anterior conserva su lógica anterior hasta que se actualice.
+La actualización no incluye ni reemplaza la planilla de producción.
+
+La atribución del operador es informativa, no autenticación individual ni auditoría
+inmutable. Los turnos sin importe no se consideran ventas cero. El resultado es
+una estimación basada en registros cargados y no un saldo de efectivo. Las tarifas
+históricas previamente congeladas se mantienen; las semanas sin congelar siguen
+usando la tarifa actual. La reactivación de una baja elimina su fecha de baja.
+Una versión posterior puede incorporar un historial completo de altas, bajas y
+tarifas con vigencia para representar períodos de inactividad.
+
+Las pruebas adicionales reproducen pagos excedidos, baja con historial conservado,
+cargas durante respuestas demoradas y dos escrituras simultáneas en el servidor.
