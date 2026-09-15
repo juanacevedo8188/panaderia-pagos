@@ -28,7 +28,9 @@ function crearDispositivo(nombre){
     _h: "", addEventListener(){}, focus(){}, querySelector(){ return null; },
     set innerHTML(v){ this._h = v; }, get innerHTML(){ return this._h; },
     textContent: "", value: "", disabled: false, hidden: false,
-    dataset: {}, lastElementChild: null
+    dataset: {}, lastElementChild: null,
+    classList: { toggle(){}, add(){}, remove(){}, contains(){ return false; } },
+    setAttribute(){}, getAttribute(){ return null; }
   });
   const elementos = new Map();
   const sandbox = {

@@ -7,6 +7,11 @@ vean lo mismo.
 
 ## Qué hace
 
+Cuatro pestañas: **Sueldos** (lo que se le debe a cada uno y el registro de
+pagos), **Caja** (facturación por turno, costos y neto), **Números** (los
+indicadores de las últimas doce semanas) y **Ajustes** (plantel, sincronización
+y respaldo). La semana queda fija arriba y vale para todas.
+
 - Semana de lunes a domingo, con flechas para moverse entre semanas.
 - Ficha por empleado: sueldo semanal objetivo, lo entregado y lo que falta.
 - Registro de cada entrega con fecha y medio (transferencia / efectivo).

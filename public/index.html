@@ -49,21 +49,37 @@ input,select,button{font:inherit;color:inherit}
 .barra-semana{
   position:sticky;top:0;z-index:5;
   background:var(--papel);border-bottom:1px solid var(--linea);
-  padding:.6rem 1rem;
+  padding:.5rem 1rem 0;
 }
 .semana{
-  display:flex;align-items:center;justify-content:space-between;gap:.8rem;
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
   max-width:760px;margin:0 auto;
   background:#fff;border:1px solid var(--linea);border-radius:8px;
-  padding:.55rem .7rem;box-shadow:0 1px 2px rgba(28,43,54,.05);
+  padding:.4rem .5rem;box-shadow:0 1px 2px rgba(28,43,54,.05);
 }
-.semana strong{font-size:.96rem;white-space:nowrap}
-.semana small{display:block;font-size:.76rem;color:var(--gris);font-weight:400}
+.semana strong{font-size:.94rem;white-space:nowrap}
+.semana small{font-size:.76rem;color:var(--gris);font-weight:400;white-space:nowrap}
 .semana button{
-  width:34px;height:34px;border-radius:17px;border:1px solid var(--linea);
-  background:#fff;color:var(--azulejo);font-size:1.2rem;line-height:1;cursor:pointer;flex:0 0 auto;
+  width:30px;height:30px;border-radius:15px;border:1px solid var(--linea);
+  background:#fff;color:var(--azulejo);font-size:1.15rem;line-height:1;cursor:pointer;flex:0 0 auto;
 }
-.semana .centro{text-align:center;flex:1}
+.semana .centro{
+  display:flex;align-items:baseline;justify-content:center;gap:.35rem;
+  flex:1;min-width:0;
+}
+
+/* ============================================================
+   PESTAÑAS
+   ============================================================ */
+.pestanas{display:flex;gap:.2rem;max-width:760px;margin:.45rem auto 0}
+.pestanas button{
+  flex:1;min-width:0;background:none;border:none;cursor:pointer;
+  padding:.5rem .15rem;font-size:.82rem;color:var(--gris);
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+}
+.pestanas button:hover{color:var(--tinta)}
+.pestanas button.activa{color:var(--azulejo);font-weight:600;border-bottom-color:var(--azulejo)}
+[hidden]{display:none !important}
 
 /* ============================================================
    RESUMEN
@@ -258,10 +274,19 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     </div>
     <button id="sem-despues" aria-label="Semana siguiente">›</button>
   </div>
+  <nav class="pestanas" id="pestanas" role="tablist" aria-label="Secciones">
+    <button role="tab" data-ir="sueldos"   id="tab-sueldos"   aria-controls="panel-sueldos">Sueldos</button>
+    <button role="tab" data-ir="caja"      id="tab-caja"      aria-controls="panel-caja">Caja</button>
+    <button role="tab" data-ir="numeros"   id="tab-numeros"   aria-controls="panel-numeros">Números</button>
+    <button role="tab" data-ir="ajustes"   id="tab-ajustes"   aria-controls="panel-ajustes">Ajustes</button>
+  </nav>
 </div>
 
 <div class="envoltorio">
 
+  <div class="nota" id="aviso-persistencia" hidden></div>
+
+  <div class="panel" id="panel-sueldos" role="tabpanel" aria-labelledby="tab-sueldos">
   <section class="seccion">
     <h2>Sueldos</h2>
     <div class="resumen">
@@ -271,7 +296,9 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     </div>
     <div id="fichas"></div>
   </section>
+  </div>
 
+  <div class="panel" id="panel-caja" role="tabpanel" aria-labelledby="tab-caja">
   <section class="seccion">
     <h2>Facturación</h2>
     <p>Al cierre de cada turno cargás el monto y la semana se suma sola.</p>
@@ -289,7 +316,9 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     <p>Lo que queda de la facturación después de los sueldos y los costos.</p>
     <div class="neto" id="neto"></div>
   </section>
+  </div>
 
+  <div class="panel" id="panel-numeros" role="tabpanel" aria-labelledby="tab-numeros">
   <section class="seccion">
     <h2>Indicadores</h2>
     <p>Las últimas doce semanas. La nómina sobre ventas es el único número que no se distorsiona con la inflación.</p>
@@ -300,7 +329,9 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
       <p class="graf-pie" id="graf-pie"></p>
     </div>
   </section>
+  </div>
 
+  <div class="panel" id="panel-ajustes" role="tabpanel" aria-labelledby="tab-ajustes">
   <section class="seccion">
     <h2>Plantel</h2>
     <p>Lo que le pagás por semana a cada uno. De acá sale el "falta" de cada ficha. El monto queda congelado en cada semana al registrar el primer pago, así editarlo no te cambia el historial.</p>
@@ -327,13 +358,12 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     <input type="file" id="archivo" accept="application/json" hidden>
   </section>
 
-  <div class="nota" id="aviso-persistencia" hidden></div>
-
   <div class="nota roja">
     Este registro es control interno: no reemplaza el recibo de sueldo.
     Los pagos a cuenta tienen que figurar en el recibo del período y, según el
     art. 130 de la LCT, los adelantos no pueden superar el 50% de la remuneración.
     Confirmá con tu contador cómo se documentan estas entregas.
+  </div>
   </div>
 </div>
 
@@ -625,7 +655,7 @@ function render(){
     ? `${lunesVista.getDate()} al ${domingo.getDate()} de ${MESES[lunesVista.getMonth()]}`
     : `${lunesVista.getDate()} de ${MESES[lunesVista.getMonth()].slice(0,3)} al ${domingo.getDate()} de ${MESES[domingo.getMonth()].slice(0,3)}`;
   const estaSemana = claveSemana(lunesDe(new Date())) === clave;
-  $("sem-nota").textContent = estaSemana ? "Semana en curso" : clave;
+  $("sem-nota").textContent = estaSemana ? "· en curso" : "";
   $("sem-despues").disabled = false;
 
   let totObj = 0, totPag = 0;
@@ -1277,6 +1307,40 @@ document.addEventListener("visibilitychange", () => { if (sinc.clave && !documen
 window.addEventListener("online", () => { if (sinc.clave) sincronizar(); });
 
 /* ============================================================
+   PESTAÑAS
+   La pestaña elegida es una comodidad de cada dispositivo, no un dato
+   de la panadería: queda en este navegador y no se sincroniza.
+   ============================================================ */
+
+const CLAVE_PANEL = "panaderia-panel-v1";
+const PANELES = ["sueldos", "caja", "numeros", "ajustes"];
+
+function verPanel(cual, mover = true){
+  if (!PANELES.includes(cual)) cual = PANELES[0];
+
+  PANELES.forEach(n => { $("panel-" + n).hidden = n !== cual; });
+  PANELES.forEach(n => {
+    const b = $("tab-" + n);
+    b.classList.toggle("activa", n === cual);
+    b.setAttribute("aria-selected", n === cual);
+  });
+
+  try { localStorage.setItem(CLAVE_PANEL, cual); } catch (e){}
+  if (mover) window.scrollTo(0, 0);
+}
+
+$("pestanas").addEventListener("click", e => {
+  const b = e.target.closest("[data-ir]");
+  if (b) verPanel(b.dataset.ir);
+});
+
+function arrancarPestanas(){
+  let guardada = null;
+  try { guardada = localStorage.getItem(CLAVE_PANEL); } catch (e){}
+  verPanel(guardada || "sueldos", false);
+}
+
+/* ============================================================
    DETALLES
    ============================================================ */
 
@@ -1298,6 +1362,7 @@ datos = normalizar(datos);
 guardar();          // detecta si el navegador bloquea el almacenamiento
 avisoPersistencia();
 render();
+arrancarPestanas();
 arrancarSinc();
 </script>
 </body>
