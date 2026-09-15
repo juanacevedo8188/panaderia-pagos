@@ -392,7 +392,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     <h2>Respaldo</h2>
     <p>Aunque estés sincronizado, descargá el respaldo cada tanto: es la copia que no depende de internet ni de este navegador.</p>
     <div class="acciones">
-      <button class="lleno" id="b-bajar">Descargar respaldo</button>
+      <button class="lleno" id="b-pdf">Descargar informe PDF</button>
+      <button id="b-bajar">Respaldo para restaurar (JSON)</button>
       <button id="b-subir">Cargar respaldo</button>
       <button id="b-planilla">Exportar pagos (CSV)</button><button id="b-movimientos">Exportar movimientos de la semana</button>
     </div>
@@ -1202,8 +1203,31 @@ function bajar(nombre, contenido, tipo){
   a.href = URL.createObjectURL(new Blob([contenido], { type:tipo }));
   a.download = nombre;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
 }
+
+$("b-pdf").addEventListener("click", async () => {
+  const boton = $("b-pdf");
+  boton.disabled = true; boton.textContent = "Generando PDF…";
+  try {
+    // Capturar todo antes de esperar: cambiar de semana o sincronizar no mezcla períodos.
+    const inicio = new Date(inicioVista), fechas = diasDe(inicio).map(iso);
+    const balance = balanceSemana(inicio);
+    const informe = JSON.parse(JSON.stringify({
+      semana:fechas[0], fin:fechas[6], generado:new Date().toLocaleString("es-AR"), demo:DEMO,
+      estado: DEMO ? "" : !sinc.clave ? "Copia de este dispositivo; no conectada a la planilla compartida." : sinc.pendientes.length ? "Hay cambios locales pendientes de sincronizar." : "Datos disponibles en este dispositivo al generar el informe.",
+      empleados:balance.empleados.filter(e => e.objetivo || e.pagado),
+      pagos:datos.pagos.filter(p => fechas.includes(p.fecha)).map(p => ({...p,nombre:datos.empleados.find(e=>e.id===p.empId)?.nombre||"Empleado sin ficha"})).sort((a,b)=>a.fecha.localeCompare(b.fecha)),
+      ventas:fechas.map(fecha=>({fecha,...(datos.turnos[fecha]||{})})), totalVentas:balance.ventas,
+      ventasManual:!fechas.some(f=>Object.keys(datos.turnos[f]||{}).length)&&!!datos.ventas[fechas[0]],
+      gastos:gastosDe(inicio)
+    }));
+    const { crearInformePDF } = await import("./informe-pdf.js");
+    bajar(`avenida-informe-${informe.semana}.pdf`, crearInformePDF(informe), "application/pdf");
+  } catch(e) {
+    alert("No se pudo generar el PDF. Tus registros no cambiaron. Recargá la página e intentá nuevamente.");
+  } finally { boton.disabled = false; boton.textContent = "Descargar informe PDF"; }
+});
 
 $("b-bajar").addEventListener("click", () => {
   bajar(`pagos-${iso(new Date())}.json`, JSON.stringify(datos, null, 2), "application/json");
