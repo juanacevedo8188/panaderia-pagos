@@ -14,12 +14,13 @@ import assert from "node:assert";
 // del <script> de la página, sin copiarlo, para que no se desfasen.
 const PAGINA = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const JS = PAGINA.match(/<script>([\s\S]*)<\/script>/)[1] +
-  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, inicioDe, congelar, registrar, ventasSemana, ventasDia, gastosDe, objetivoDe, objetivoHabitual, tarifaDe, diasTrabajados, descongelar, pagosDe, get inicioVista(){return inicioVista}, set inicioVista(v){inicioVista=v} };\n";
+  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, inicioDe, congelar, registrar, ventasSemana, ventasDia, gastosDe, objetivoDe, objetivoHabitual, tarifaDe, diasTrabajados, descongelar, pagosDe, balanceSemana, resumenSemana, get inicioVista(){return inicioVista}, set inicioVista(v){inicioVista=v} };\n";
 
 // --- servidor de mentira ---
 let servidor = { version: 0, datos: null, fecha: null };
 const CLAVE_OK = "pan2026";
 let peticiones = [];
+let bloquearRespuesta = false, respuestaBloqueada = null;
 let caido = false;                    // simula el wifi de la panadería
 
 function crearDispositivo(nombre){
@@ -69,7 +70,9 @@ function crearDispositivo(nombre){
       if (version !== servidor.version)
         return resp({ error: "desfasado", version: servidor.version, datos: servidor.datos }, 409);
       servidor = { version: servidor.version + 1, datos, fecha: new Date().toISOString() };
-      return resp({ version: servidor.version, fecha: servidor.fecha });
+      const respuesta = resp({ version: servidor.version, fecha: servidor.fecha });
+      if (bloquearRespuesta){ bloquearRespuesta = false; await new Promise(r => { respuestaBloqueada = r; }); }
+      return respuesta;
     }
   };
   sandbox.globalThis = sandbox;
@@ -341,6 +344,36 @@ assert.equal(bauti.objetivoDe(ger(), "2026-09-20"), 408000,
 await esperar();
 console.log("17. aumentos y semanas ya pagadas: ok");
 
+
+/* 18. El exceso de una persona no compensa la deuda con otra. */
+const calculos=crearDispositivo("calculos");
+calculos.datos=calculos.normalizar({empleados:[{id:"a",nombre:"A",modo:"semana",monto:100000},{id:"b",nombre:"B",modo:"semana",monto:100000}],pagos:[{id:"pa",empId:"a",fecha:"2026-09-15",monto:120000,medio:"efectivo"}],turnos:{"2026-09-15":{m:500000}},gastos:[]});
+const inicio=calculos.inicioDe(new Date("2026-09-15T12:00"));
+assert.equal(calculos.balanceSemana(inicio).pendiente,100000);
+assert.equal(calculos.balanceSemana(inicio).excedente,20000);
+assert.equal(calculos.balanceSemana(inicio).resultado,300000);
+calculos.op({t:"emp=",id:"a",bajaDesde:"2026-09-20"});
+assert.equal(calculos.objetivoDe(calculos.datos.empleados[0],"2026-09-13"),100000);
+assert.equal(calculos.objetivoDe(calculos.datos.empleados[0],"2026-09-20"),0);
+assert.equal(calculos.datos.pagos.length,1);
+console.log("18. saldos individuales, resultado y baja sin borrar historial: ok");
+
+/* 19. Un pago que llega mientras esperamos un PUT no desaparece de la cola. */
+await bauti.empujar();
+bloquearRespuesta=true;
+bauti.op({t:"pago+",pago:{id:"p-enviado",empId:"j2",fecha:"2026-09-22",monto:1000,medio:"efectivo"}});
+const enVuelo=bauti.empujar();
+await esperar(30);
+assert.ok(respuestaBloqueada,"la respuesta queda demorada");
+bauti.op({t:"pago+",pago:{id:"p-durante",empId:"j2",fecha:"2026-09-22",monto:2000,medio:"efectivo"}});
+respuestaBloqueada();
+await enVuelo;
+assert.equal(bauti.sinc.pendientes.length,1,"solo se quita el lote confirmado");
+await esperar();
+assert.ok(servidor.datos.pagos.some(p=>p.id==="p-enviado"));
+assert.ok(servidor.datos.pagos.some(p=>p.id==="p-durante"));
+assert.equal(bauti.sinc.pendientes.length,0);
+console.log("19. carga durante una respuesta demorada: ok");
 
 console.log("\nTODO OK — " + peticiones.length + " llamadas al servidor, versión final " + servidor.version);
 

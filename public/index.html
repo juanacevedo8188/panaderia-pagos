@@ -291,11 +291,13 @@ input,select,button{font:inherit;color:inherit}
 
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);outline-offset:1px}
 </style>
+<link rel="stylesheet" href="/avenida.css">
+<meta name="theme-color" content="#174D43">
 </head>
 <body>
 
 <header class="tope">
-  <div class="envoltorio"><h1>Panadería Avenida</h1><p>Control semanal de sueldos, facturación y costos</p></div>
+  <div class="envoltorio marca"><div class="marca-icono" aria-hidden="true">A<span>·</span></div><div><p class="marca-kicker">PANADERÍA</p><h1>Avenida</h1></div><div class="marca-derecha"><span>Administración del negocio</span><button id="estado-global" aria-live="polite" onclick="verPanel('ajustes')">Solo en este dispositivo</button></div></div>
 </header>
 <div class="tope-patron"></div>
 
@@ -309,6 +311,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     <button id="sem-despues" aria-label="Semana siguiente">›</button>
   </div>
   <nav class="pestanas" id="pestanas" role="tablist" aria-label="Secciones">
+    <button role="tab" data-ir="inicio" id="tab-inicio" aria-controls="panel-inicio">Inicio</button>
     <button role="tab" data-ir="sueldos"   id="tab-sueldos"   aria-controls="panel-sueldos">Sueldos</button>
     <button role="tab" data-ir="caja"      id="tab-caja"      aria-controls="panel-caja">Caja</button>
     <button role="tab" data-ir="numeros"   id="tab-numeros"   aria-controls="panel-numeros">Números</button>
@@ -319,6 +322,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
 <div class="envoltorio">
 
   <div class="nota" id="aviso-persistencia" hidden></div>
+  <div id="aviso-demo" class="demo-banner" hidden>DEMOSTRACIÓN · Datos ficticios. Los cambios de esta vista no se comparten.</div>
+  <div class="panel" id="panel-inicio" role="tabpanel" aria-labelledby="tab-inicio"><div id="inicio-contenido"></div></div>
 
   <div class="panel" id="panel-sueldos" role="tabpanel" aria-labelledby="tab-sueldos">
   <section class="seccion">
@@ -328,7 +333,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
       <div class="listo"><div class="valor num" id="r-pagado">$0</div><div class="rotulo">Entregado</div></div>
       <div class="falta"><div class="valor num" id="r-falta">$0</div><div class="rotulo">Falta</div></div>
     </div>
-    <div id="fichas"></div>
+    <div class="filtros"><label>Buscar empleado<input id="buscar-empleado" type="search" placeholder="Nombre del empleado"></label><label>Mostrar<select id="filtro-saldo"><option value="todos">Todo el personal</option><option value="pendientes">Con saldo pendiente</option><option value="saldados">Saldados</option></select></label></div><div id="fichas"></div>
   </section>
   </div>
 
@@ -355,7 +360,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
   <div class="panel" id="panel-numeros" role="tabpanel" aria-labelledby="tab-numeros">
   <section class="seccion">
     <h2>Indicadores</h2>
-    <p>Las últimas doce semanas. La nómina sobre ventas es el único número que no se distorsiona con la inflación.</p>
+    <p>Últimas doce semanas con actividad. El costo salarial se calcula con lo que corresponde pagar, aunque todavía no se haya entregado.</p>
     <div class="tarjetas" id="tarjetas"></div>
     <div class="grafico">
       <h3 id="graf-titulo">Costo de personal por semana</h3>
@@ -380,6 +385,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     <h2>Planilla compartida</h2>
     <p>Con la clave de la panadería, este dispositivo trabaja sobre la misma planilla que los demás: lo que carga uno lo ve el otro. Sin clave, los datos quedan solamente acá.</p>
     <div class="sinc" id="sinc"></div>
+    <label class="operador">Tu nombre en este dispositivo<input id="operador" placeholder="Ej.: Juan" maxlength="40" autocomplete="off"></label><p class="ayuda">Se agrega a los nuevos pagos y gastos. Es una identificación de carga, no una cuenta de acceso.</p>
   </section>
 
   <section class="seccion">
@@ -388,16 +394,14 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     <div class="acciones">
       <button class="lleno" id="b-bajar">Descargar respaldo</button>
       <button id="b-subir">Cargar respaldo</button>
-      <button id="b-planilla">Exportar a planilla (CSV)</button>
+      <button id="b-planilla">Exportar pagos (CSV)</button><button id="b-movimientos">Exportar movimientos de la semana</button>
     </div>
     <input type="file" id="archivo" accept="application/json" hidden>
   </section>
 
   <div class="nota roja">
     Este registro es control interno: no reemplaza el recibo de sueldo.
-    Los pagos a cuenta tienen que figurar en el recibo del período y, según el
-    art. 130 de la LCT, los adelantos no pueden superar el 50% de la remuneración.
-    Confirmá con tu contador cómo se documentan estas entregas.
+    Confirmá con tu contador cómo documentar las entregas y liquidar cada período.
   </div>
   </div>
 </div>
@@ -407,7 +411,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
    PERSISTENCIA — localStorage con respaldo en memoria
    ============================================================ */
 
-const CLAVE = "panaderia-pagos-v1";
+const DEMO = typeof window.location !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
+const CLAVE = DEMO ? "avenida-demo-datos-v2" : "panaderia-pagos-v1";
 let PERSISTE = true;
 
 let datos = {
@@ -520,6 +525,7 @@ function diasTrabajados(emp, clave){
 }
 
 function objetivoDe(emp, clave){
+  if (emp.bajaDesde && clave >= emp.bajaDesde) return 0;
   const t = tarifaDe(emp, clave);
   return t.modo === "dia"
     ? (t.monto + t.extra) * diasTrabajados(emp, clave).length
@@ -593,8 +599,9 @@ function ventasDia(fecha){
 }
 
 function ventasSemana(inicio, clave){
-  const total = diasDe(inicio).reduce((a, d) => a + ventasDia(iso(d)), 0);
-  return total || (datos.ventas ? datos.ventas[clave] || 0 : 0);
+  const dias = diasDe(inicio);
+  const total = dias.reduce((a, d) => a + ventasDia(iso(d)), 0);
+  return dias.some(d => Object.keys(datos.turnos[iso(d)] || {}).length) ? total : (datos.ventas ? datos.ventas[clave] || 0 : 0);
 }
 
 function pintarFactura(){
@@ -648,7 +655,7 @@ function pintarCostos(){
       ${lista.length ? lista.map(g => `
         <div class="mov">
           <span class="fecha">${desdeISO(g.fecha).toLocaleDateString("es-AR",{weekday:"short",day:"numeric"})}</span>
-          <span class="concepto">${limpio(g.concepto)}</span>
+          <span class="concepto">${limpio(g.concepto)}${g.autor ? " · " + limpio(g.autor) : ""}</span>
           <span class="monto">${pesos(g.monto)}</span>
           <button class="borrar" data-gasto="${g.id}" aria-label="Borrar ${limpio(g.concepto)}">×</button>
         </div>`).join("") : `<div class="vacio">Sin costos cargados esta semana.</div>`}
@@ -671,11 +678,11 @@ function pintarNeto(){
   const neto = facturacion - sueldos - costos;
 
   $("neto").innerHTML = `
-    <div class="linea"><span>Facturación</span><b>${pesos(facturacion)}</b></div>
+    <p class="ayuda">Ventas cargadas menos sueldos previstos y gastos registrados. No es el saldo de caja ni un resultado contable definitivo.</p><div class="linea"><span>Facturación</span><b>${pesos(facturacion)}</b></div>
     <div class="linea resta"><span>Sueldos de la semana</span><b>−${pesos(sueldos)}</b></div>
     <div class="linea resta"><span>Costos generales</span><b>−${pesos(costos)}</b></div>
     <div class="linea final ${neto >= 0 ? "bien" : "mal"}">
-      <span>Neto de la semana</span><b>${conSigno(neto)}</b>
+      <span>Resultado estimado de la semana</span><b>${conSigno(neto)}</b>
     </div>`;
 }
 
@@ -684,7 +691,7 @@ function guardarCosto(){
   const monto = parseFloat(campoMonto.value) || 0;
   const concepto = campoQue.value.trim();
   if (!concepto) return campoQue.focus();
-  if (!(monto > 0)) return campoMonto.focus();
+  if (!(Number.isFinite(monto) && monto > 0)) return campoMonto.focus();
 
   const fecha = $("costo-dia").value;
 
@@ -697,6 +704,7 @@ function guardarCosto(){
 $("costos").addEventListener("click", e => {
   if (e.target.id === "costo-guardar") guardarCosto();
   if (e.target.matches("[data-gasto]")){
+    if (!confirm("¿Eliminar este gasto del registro?")) return;
     op({ t:"gasto-", id:e.target.dataset.gasto });
     pintarCostos(); pintarNeto(); pintarMetricas();
   }
@@ -710,11 +718,13 @@ $("costos").addEventListener("keydown", e => {
 function guardarTurno(){
   const campo = $("fact-monto");
   const monto = parseFloat(campo.value) || 0;
-  if (!(monto > 0)) return;
+  if (!(Number.isFinite(monto) && monto > 0)) return;
 
   const fecha = $("fact-dia").value;
 
-  op({ t:"turno=", fecha, turno:$("fact-turno").value, valor:monto });
+  const turno = $("fact-turno").value;
+  if (datos.turnos[fecha]?.[turno] != null && !confirm("Ya hay un importe para este turno. ¿Reemplazarlo por " + pesos(monto) + "?")) return;
+  op({ t:"turno=", fecha, turno, valor:monto });
   campo.value = "";
   pintarFactura();
   pintarNeto();
@@ -725,6 +735,7 @@ function guardarTurno(){
 $("factura").addEventListener("click", e => {
   if (e.target.id === "fact-guardar") guardarTurno();
   if (e.target.matches("[data-quitar]")){
+    if (!confirm("¿Eliminar el importe de este turno?")) return;
     const [fecha, turno] = e.target.dataset.quitar.split(":");
     op({ t:"turno=", fecha, turno, valor:null });
     pintarFactura();
@@ -761,14 +772,14 @@ function render(){
   $("sem-nota").textContent = estaSemana ? "· en curso" : "";
   $("sem-despues").disabled = false;
 
-  let totObj = 0, totPag = 0;
+  let totObj = 0, totPag = 0, totFalta = 0;
 
-  $("fichas").innerHTML = datos.empleados.map(emp => {
+  $("fichas").innerHTML = datos.empleados.filter(emp => !emp.bajaDesde || clave < emp.bajaDesde || pagosDe(emp.id, inicioVista).length).map(emp => {
     const objetivo = objetivoDe(emp, clave);
     const movs = pagosDe(emp.id, inicioVista);
     const pagado = movs.reduce((a, p) => a + p.monto, 0);
     const saldo = objetivo - pagado;
-    totObj += objetivo; totPag += pagado;
+    totObj += objetivo; totPag += pagado; totFalta += Math.max(0, saldo);
 
     const sinSueldo = objetivo <= 0;
     const pct = objetivo > 0 ? Math.min(100, (pagado / objetivo) * 100) : 0;
@@ -809,7 +820,7 @@ function render(){
         ${movs.length ? movs.map(p => `
           <div class="mov">
             <span class="fecha">${desdeISO(p.fecha).toLocaleDateString("es-AR",{weekday:"short",day:"numeric"})}</span>
-            <span class="medio">${p.medio}</span>
+            <span class="medio">${limpio(p.medio)}${p.autor ? " · " + limpio(p.autor) : ""}</span>
             <span class="monto">${pesos(p.monto)}</span>
             <button class="borrar" data-borrar="${p.id}" aria-label="Borrar pago">×</button>
           </div>`).join("") : `<div class="vacio">Sin pagos esta semana.</div>`}
@@ -833,7 +844,7 @@ function render(){
 
   $("r-objetivo").textContent = pesos(totObj);
   $("r-pagado").textContent = pesos(totPag);
-  $("r-falta").textContent = pesos(Math.max(0, totObj - totPag));
+  $("r-falta").textContent = pesos(totFalta);
 
   $("plantel").innerHTML = datos.empleados.map(e => {
     const porDia = e.modo === "dia";
@@ -863,7 +874,7 @@ function render(){
              aria-pressed="${dias.includes(i)}" aria-label="${DIAS[i]}">${ini}</button>`).join("")}
         </div>
       </div>` : ""}
-      <div class="emp-pie">${pieDe(e)}</div>
+      <div class="emp-pie">${pieDe(e)}${e.bajaDesde ? `<br>Baja desde ${limpio(e.bajaDesde)} · historial conservado <button data-reactivar>Reactivar</button>` : ""}</div>
     </div>`;
   }).join("") || `<div class="vacio">Todavía no hay nadie cargado.</div>`;
 
@@ -873,6 +884,8 @@ function render(){
   pintarCostos();
   pintarNeto();
   pintarMetricas();
+  pintarInicio();
+  filtrarEmpleados();
 }
 
 /* ============================================================
@@ -939,17 +952,18 @@ function pintarMetricas(){
   const entregasPorEmp = conMov.length
     ? conMov.reduce((a, s) => a + (s.empleados ? s.entregas / s.empleados : 0), 0) / conMov.length : 0;
 
-  const empSemana = serie.reduce((a, s) => a + s.empleados, 0);
-  const saldadosTot = serie.reduce((a, s) => a + s.saldados, 0);
+  const completas = serie.filter(s => s.clave < claveSemana(inicioDe(new Date())) && (s.entregas > 0 || s.ventas > 0));
+  const empSemana = completas.reduce((a, s) => a + s.empleados, 0);
+  const saldadosTot = completas.reduce((a, s) => a + s.saldados, 0);
   const cumplimiento = empSemana ? (saldadosTot / empSemana) * 100 : 0;
 
-  const ratio = act.ventas > 0 ? (act.total / act.ventas) * 100 : null;
+  const ratio = act.ventas > 0 ? (act.objetivo / act.ventas) * 100 : null;
 
   const t = [];
-  t.push(`<div class="tarjeta ${ratio === null ? "" : ratio > 35 ? "alta" : ratio < 28 ? "buena" : ""}">
+  t.push(`<div class="tarjeta ${ratio === null ? "" : ""}">
     <div class="valor">${ratio === null ? "—" : ratio.toFixed(1) + "%"}</div>
     <div class="rotulo">Nómina sobre ventas</div>
-    <div class="pie">${ratio === null ? "Cargá la facturación arriba" : "Referencia del rubro: 25% a 35%"}</div>
+    <div class="pie">${ratio === null ? "Cargá la facturación arriba" : "Sueldos previstos ÷ ventas cargadas · puede ser parcial"}</div>
   </div>`);
 
   t.push(`<div class="tarjeta">
@@ -966,8 +980,8 @@ function pintarMetricas(){
 
   t.push(`<div class="tarjeta ${cumplimiento >= 95 ? "buena" : cumplimiento < 80 ? "alta" : ""}">
     <div class="valor">${empSemana ? cumplimiento.toFixed(0) + "%" : "—"}</div>
-    <div class="rotulo">Semanas cerradas al día</div>
-    <div class="pie">Sin saldo pendiente al domingo</div>
+    <div class="rotulo">Empleados saldados</div>
+    <div class="pie">Sobre empleados de semanas anteriores con actividad</div>
   </div>`);
 
   $("tarjetas").innerHTML = t.join("");
@@ -979,19 +993,14 @@ function pintarMetricas(){
     : "Costo de personal por semana";
 
   const valores = serie.map(s => hayVentas
-    ? (s.ventas > 0 ? (s.total / s.ventas) * 100 : 0)
-    : s.total);
+    ? (s.ventas > 0 ? (s.objetivo / s.ventas) * 100 : 0)
+    : s.objetivo);
 
   const tope = Math.max(...valores, 1);
   const W = 340, H = 130, base = H - 18, ancho = W / serie.length;
 
   let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img">`;
 
-  if (hayVentas){                              // franja de referencia 25-35%
-    const y1 = base - (35 / tope) * (base - 6);
-    const y2 = base - (25 / tope) * (base - 6);
-    svg += `<rect x="0" y="${y1.toFixed(1)}" width="${W}" height="${(y2 - y1).toFixed(1)}" fill="#EAF3F1"/>`;
-  }
 
   serie.forEach((s, i) => {
     const v = valores[i];
@@ -1012,8 +1021,8 @@ function pintarMetricas(){
   $("graf").innerHTML = svg;
 
   $("graf-pie").textContent = hayVentas
-    ? `La franja marca el rango de referencia del rubro (25% a 35%). Tope del eje: ${tope.toFixed(0)}%.`
-    : `Montos nominales: con inflación no son comparables entre semanas lejanas. Cargá la facturación para ver el ratio, que sí lo es.`;
+    ? `Costo salarial previsto / ventas registradas. Semanas incompletas no son comparables. Tope: ${tope.toFixed(0)}%.`
+    : `Montos nominales: con inflación no son comparables entre semanas lejanas. Compará períodos con el mismo grado de carga.`;
 }
 
 /* ============================================================
@@ -1021,7 +1030,7 @@ function pintarMetricas(){
    ============================================================ */
 
 function registrar(empId, monto, medio, fecha){
-  if (!(monto > 0)) return;
+  if (!(Number.isFinite(monto) && monto > 0)) return;
   congelar(claveSemana(inicioVista));
   op({ t:"pago+", pago:{ id:uid(), empId, fecha:fecha || fechaSugerida(), monto, medio } });
   render();
@@ -1043,6 +1052,7 @@ $("fichas").addEventListener("click", e => {
       ficha.querySelector("[data-medio]").value, ficha.querySelector("[data-fecha]").value);
   }
   if (e.target.matches("[data-borrar]")){
+    if (!confirm("¿Eliminar este pago del registro?")) return;
     op({ t:"pago-", id:e.target.dataset.borrar });
     render();
   }
@@ -1087,7 +1097,8 @@ $("plantel").addEventListener("input", e => {
   const fila = e.target.closest("[data-emp]");
   if (!fila) return;
   const id = fila.dataset.emp;
-  const numero = parseFloat(e.target.value) || 0;
+  const entrada = parseFloat(e.target.value);
+  const numero = Number.isFinite(entrada) ? Math.max(0, entrada) : 0;
 
   if (e.target.matches("[data-modo]")){
     // acá sí hay que rehacer: cambia si aparece el cole y los días
@@ -1129,10 +1140,14 @@ $("plantel").addEventListener("click", e => {
     return;
   }
 
+  if (e.target.matches("[data-reactivar]")){
+    op({ t:"emp=", id, bajaDesde:null }); render(); return;
+  }
   if (e.target.matches("[data-quitar]")){
     const emp = datos.empleados.find(x => x.id === id);
-    if (!confirm(`¿Quitar a ${emp.nombre || "este empleado"}? Se borran también sus pagos registrados.`)) return;
-    op({ t:"emp-", id });
+    if (!confirm(`¿Dar de baja a ${emp.nombre || "este empleado"} desde la semana siguiente? Su historial y la semana actual se conservan.`)) return;
+    const siguiente = new Date(inicioVista); siguiente.setDate(siguiente.getDate() + 7);
+    op({ t:"emp=", id, bajaDesde:iso(siguiente) });
     render();
   }
 });
@@ -1216,7 +1231,7 @@ $("archivo").addEventListener("change", e => {
 
 $("b-planilla").addEventListener("click", () => {
   const filas = [["semana_desde","fecha","empleado","monto","medio","le_corresponde_esa_semana"]];
-  datos.pagos
+  datos.pagos.slice()
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
     .forEach(p => {
       const emp = datos.empleados.find(e => e.id === p.empId);
@@ -1238,7 +1253,7 @@ $("b-planilla").addEventListener("click", () => {
    solamente contra este navegador.
    ============================================================ */
 
-const CLAVE_SINC = "panaderia-sinc-v1";
+const CLAVE_SINC = DEMO ? "avenida-demo-sinc-v2" : "panaderia-sinc-v1";
 const API = "/api/datos";
 
 let sinc = { clave:"", version:0, pendientes:[], estado:"local", detalle:"", fecha:0 };
@@ -1318,6 +1333,7 @@ function aplicar(d, o){
     case "emp=": {
       const e = d.empleados.find(x => x.id === o.id);
       if (e){
+        if (o.bajaDesde !== undefined) e.bajaDesde = o.bajaDesde;
         if (o.nombre !== undefined) e.nombre = o.nombre;
         if (o.modo   !== undefined) e.modo   = o.modo;
         if (o.monto  !== undefined) e.monto  = o.monto;
@@ -1369,11 +1385,17 @@ function aplicar(d, o){
 }
 
 function op(o){
+  const movimiento = o.pago || o.gasto;
+  if (movimiento && !movimiento.autor){
+    try { movimiento.autor = localStorage.getItem("avenida-operador") || ""; } catch(e){}
+    movimiento.creado = new Date().toISOString();
+  }
   aplicar(datos, o);
   guardar();
   if (!sinc.clave) return;
   sinc.pendientes.push(o);
   guardarSinc();
+  pintarSinc("yendo", "Cambios pendientes de subir");
   clearTimeout(demora);
   demora = setTimeout(empujar, 700);
 }
@@ -1400,6 +1422,8 @@ function pintarSinc(estado, detalle){
       : sinc.fecha ? `Al día · última vez a las ${RELOJ(sinc.fecha)}` : "Buscando la planilla…";
   if (!bajo) bajo = "Nadie más ve lo que cargás acá.";
 
+  $("estado-global").textContent = DEMO ? "Demostración · sin conexión real" : (TITULOS[sinc.estado] || "") + (sinc.pendientes.length ? " · " + sinc.pendientes.length + " pendientes" : "");
+  $("estado-global").dataset.estado = sinc.estado;
   const campo = $("sinc-clave");
   const escrito = campo ? campo.value : "";
   const tenia = campo && document.activeElement === campo;
@@ -1424,6 +1448,7 @@ function ocupado(){
 /* --- ida y vuelta con el servidor --- */
 
 function pedir(metodo, cuerpo){
+  if (DEMO) throw new Error("La demostración no accede al servidor");
   return fetch(API, {
     method: metodo,
     headers: Object.assign({ "x-clave": sinc.clave }, cuerpo ? { "content-type":"application/json" } : {}),
@@ -1440,6 +1465,7 @@ async function empujar(){
   pintarSinc("yendo", "Guardando…");
   try {
     for (let intento = 0; intento < 4; intento++){
+      const cantidadEnviada = sinc.pendientes.length;
       const r = await pedir("PUT", { version:sinc.version, datos });
 
       if (r.status === 409){                       // otro dispositivo guardó primero
@@ -1453,13 +1479,18 @@ async function empujar(){
         continue;
       }
       if (r.status === 401) return pintarSinc("clave", "Revisá la clave con quien la configuró.");
+      if (r.status === 403) return pintarSinc("error", "Vista previa: usá el modo de demostración. La planilla real está protegida.");
       if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
       if (!r.ok) throw new Error("http " + r.status);
 
       const ok = await r.json();
       sinc.version = ok.version;
-      sinc.pendientes = [];
+      sinc.pendientes.splice(0, cantidadEnviada);
       guardarSinc();
+      if (sinc.pendientes.length){
+        clearTimeout(demora); demora = setTimeout(empujar, 0);
+        return pintarSinc("yendo", "Subiendo los cambios siguientes…");
+      }
       return pintarSinc("ok");
     }
     pintarSinc("error", "No se pudo guardar, se reintenta en un rato.");
@@ -1472,13 +1503,16 @@ async function empujar(){
 
 async function traer(){
   if (!sinc.clave || empujando) return;
+  if (sinc.pendientes.length) return empujar();
   try {
     const r = await pedir("GET");
     if (r.status === 401) return pintarSinc("clave", "Revisá la clave con quien la configuró.");
-    if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
+    if (r.status === 403) return pintarSinc("error", "Vista previa: usá el modo de demostración. La planilla real está protegida.");
+      if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
     if (!r.ok) throw new Error("http " + r.status);
 
     const remoto = await r.json();
+    if (empujando || sinc.pendientes.length) return;
 
     if (!remoto.datos){                            // planilla vacía: la estrena este dispositivo
       sinc.pendientes.push({ t:"todo=", datos:normalizar(datos) });
@@ -1502,12 +1536,14 @@ const sincronizar = () => sinc.pendientes.length ? empujar() : traer();
 /* --- conectar y desconectar --- */
 
 async function conectar(clave){
+  if (DEMO) return pintarSinc("local", "La demostración no se conecta a la planilla real.");
   if (!clave) return;
   pintarSinc("yendo", "Probando la clave…");
   try {
     const r = await fetch(API, { headers:{ "x-clave":clave } });
     if (r.status === 401) return pintarSinc("clave", "Probá de nuevo.");
-    if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
+    if (r.status === 403) return pintarSinc("error", "Vista previa: usá el modo de demostración. La planilla real está protegida.");
+      if (r.status === 503) return pintarSinc("error", "Falta configurar CLAVE_PANADERIA en Netlify.");
     if (!r.ok) throw new Error("http " + r.status);
 
     const remoto = await r.json();
@@ -1553,6 +1589,7 @@ $("sinc").addEventListener("keydown", e => {
 });
 
 function arrancarSinc(){
+  if (DEMO){ sinc.clave = ""; sinc.pendientes = []; }
   pintarSinc(sinc.clave ? "yendo" : "local");
   if (sinc.clave) sincronizar();
 }
@@ -1568,7 +1605,7 @@ window.addEventListener("online", () => { if (sinc.clave) sincronizar(); });
    ============================================================ */
 
 const CLAVE_PANEL = "panaderia-panel-v1";
-const PANELES = ["sueldos", "caja", "numeros", "ajustes"];
+const PANELES = ["inicio", "sueldos", "caja", "numeros", "ajustes"];
 
 function verPanel(cual, mover = true){
   if (!PANELES.includes(cual)) cual = PANELES[0];
@@ -1596,7 +1633,7 @@ $("pestanas").addEventListener("click", e => {
 function arrancarPestanas(){
   let guardada = null;
   try { guardada = localStorage.getItem(CLAVE_PANEL); } catch (e){}
-  verPanel(guardada || "sueldos", false);
+  verPanel(guardada || "inicio", false);
 }
 
 /* ============================================================
@@ -1611,11 +1648,108 @@ document.addEventListener("wheel", e => {
       e.target.tagName === "INPUT" && e.target.type === "number") e.target.blur();
 }, { passive:true });
 
+/* Tablero: solamente deriva valores. Nunca modifica registros al renderizar. */
+function balanceSemana(inicio){
+  const clave = claveSemana(inicio);
+  const empleados = datos.empleados.map(e => {
+    const objetivo = objetivoDe(e, clave);
+    const pagado = pagosDe(e.id, inicio).reduce((a,p) => a + p.monto, 0);
+    return { nombre:e.nombre, objetivo, pagado, pendiente:Math.max(0, objetivo-pagado), excedente:Math.max(0, pagado-objetivo) };
+  });
+  const ventas = ventasSemana(inicio, clave);
+  const gastos = gastosDe(inicio).reduce((a,g) => a + g.monto, 0);
+  const objetivo = empleados.reduce((a,e) => a+e.objetivo,0);
+  const pagado = empleados.reduce((a,e) => a+e.pagado,0);
+  return { empleados, ventas, gastos, objetivo, pagado,
+    pendiente:empleados.reduce((a,e) => a+e.pendiente,0),
+    excedente:empleados.reduce((a,e) => a+e.excedente,0),
+    resultado:ventas-objetivo-gastos };
+}
+function pintarInicio(){
+  const b = balanceSemana(inicioVista);
+  const dias = diasDe(inicioVista);
+  const hoy = iso(new Date());
+  const cargados = dias.reduce((a,d) => a+TURNOS.filter(([k]) => datos.turnos[iso(d)]?.[k] != null).length,0);
+  const pendientes = b.empleados.filter(e => e.pendiente>0).sort((a,c) => c.pendiente-a.pendiente);
+  const max = Math.max(...dias.map(d => ventasDia(iso(d))),1);
+  const enCurso = claveSemana(inicioVista) === claveSemana(inicioDe(new Date()));
+  const sinActividad = !cargados && !b.ventas && !b.pagado && !b.gastos;
+  const tarjeta = (titulo, valor, detalle, clase="") => `<div class="kpi ${clase}"><span>${titulo}</span><strong>${valor}</strong><small>${detalle}</small></div>`;
+  $("inicio-contenido").innerHTML = `
+    <div class="bienvenida"><div><div class="eyebrow">EL NEGOCIO, DE UN VISTAZO</div><h2>Todo en orden.<br><em>Una semana a la vez.</em></h2><p>Ventas, equipo y gastos en un solo lugar.</p></div><div class="sello"><span>AVENIDA</span><b>Hecho<br>cada día.</b><span>CONTROL SEMANAL</span></div></div>
+    <div class="atajos"><button data-abrir="caja">＋ Cargar venta</button><button data-abrir="sueldos">↗ Registrar pago</button><button data-abrir="caja" data-foco="costos">＋ Cargar gasto</button><button data-hoy>Volver a esta semana</button></div>
+    <div class="kpis">
+      ${tarjeta("Ventas registradas",pesos(b.ventas),`${cargados} de 14 turnos con importe`,"destacada")}
+      ${tarjeta("Pendiente al personal",pesos(b.pendiente),`${pendientes.length} personas con saldo pendiente`)}
+      ${tarjeta("Gastos registrados",pesos(b.gastos),"Además de los sueldos")}
+      ${tarjeta("Sueldos previstos",pesos(b.objetivo),"Según tarifas y días marcados")}
+    </div>
+    <div class="tablero-grid"><section class="panel-card ventas-card"><div class="card-heading"><div><span class="eyebrow">RITMO DE LA SEMANA</span><h3>Ventas por día</h3></div><span class="etiqueta">${enCurso ? "En curso" : "Semana seleccionada"}</span></div>
+      <div class="leyenda"><i></i>Mañana <i class="tarde"></i>Tarde <span>Sin carga ≠ venta cero</span></div>
+      <div class="barras-semana" role="img" aria-label="Ventas por día de domingo a sábado; detalle en la tabla inferior">
+      ${dias.map(d=>{const f=iso(d), turnos=datos.turnos[f]||{},total=ventasDia(f);return `<div class="dia-barra ${f===hoy?"hoy":""}"><span class="importe-dia">${total ? pesos(total) : "—"}</span><div class="columna"><i class="barra-tarde" style="height:${(turnos.t||0)/max*100}%"></i><i class="barra-manana" style="height:${(turnos.m||0)/max*100}%"></i></div><b>${DIAS[d.getDay()].slice(0,3)}</b><small>${d.getDate()}</small></div>`}).join("")}
+      </div>
+      <details class="detalle-turnos"><summary>Ver importes por turno</summary><div class="tabla-scroll"><table><thead><tr><th>Día</th><th>Mañana</th><th>Tarde</th><th>Total</th></tr></thead><tbody>${dias.map(d=>{const t=datos.turnos[iso(d)]||{};return `<tr><td>${DIAS[d.getDay()]} ${d.getDate()}</td><td>${t.m==null?"Sin carga":pesos(t.m)}</td><td>${t.t==null?"Sin carga":pesos(t.t)}</td><td>${Object.keys(t).length?pesos(ventasDia(iso(d))):"—"}</td></tr>`}).join("")}</tbody></table></div></details></section>
+    <section class="panel-card"><div class="card-heading"><div><span class="eyebrow">EL EQUIPO</span><h3>Pagos pendientes</h3></div><span class="etiqueta">${pendientes.length}</span></div>
+      <div class="lista-pendientes">${pendientes.length ? pendientes.map(e=>`<div class="pendiente-fila"><span class="avatar">${limpio((e.nombre||"?").slice(0,1).toUpperCase())}</span><div><b>${limpio(e.nombre)||"Sin nombre"}</b><small>${pesos(e.pagado)} entregado</small></div><strong>${pesos(e.pendiente)}</strong></div>`).join("") : `<div class="estado-vacio"><b>${b.empleados.length ? "Sin pendientes" : "Tu equipo empieza acá"}</b><p>${b.empleados.length ? "Según los importes y días cargados para esta semana." : "Agregá al personal en Ajustes para comenzar."}</p></div>`}</div>
+      ${b.excedente ? `<p class="advertencia">Hay ${pesos(b.excedente)} entregados de más. Se muestran aparte y no reducen la deuda con otras personas.</p>` : ""}
+      <button class="enlace-boton" data-abrir="sueldos">Ver el detalle del personal →</button></section></div>
+    <div class="tablero-grid inferior"><section class="panel-card balance-card"><div class="card-heading"><div><span class="eyebrow">VENTAS MENOS COSTOS</span><h3>Resultado estimado</h3></div></div><strong class="gran-numero ${b.resultado<0?"negativo":""}">${conSigno(b.resultado)}</strong><p>${pesos(b.ventas)} ventas − ${pesos(b.objetivo)} sueldos previstos − ${pesos(b.gastos)} gastos.</p><div class="advertencia">${enCurso ? "Semana en curso. " : ""}${sinActividad ? "Todavía no hay movimientos cargados. " : ""}Incluye el sueldo previsto de toda la semana. No representa el efectivo disponible ni una ganancia definitiva.</div></section>
+    <section class="panel-card"><div class="card-heading"><div><span class="eyebrow">ANTES DE CERRAR</span><h3>Para revisar</h3></div></div><div class="check-fila"><span>01</span><p><b>Completar los turnos</b><small>${14-cargados} espacios sin importe. Revisá los turnos trabajados; los días cerrados pueden quedar sin carga.</small></p></div><div class="check-fila"><span>02</span><p><b>Confirmar los días del personal</b><small>Los días habituales se completan por defecto. Ajustalos a los efectivamente trabajados.</small></p></div><div class="check-fila"><span>03</span><p><b>Guardar una copia</b><small>Descargá el respaldo desde Ajustes antes de hacer cambios importantes.</small></p></div></section></div>`;
+}
+$("inicio-contenido").addEventListener("click",e=>{
+  const abrir=e.target.closest("[data-abrir]");
+  if(abrir){verPanel(abrir.dataset.abrir); if(abrir.dataset.foco) $(abrir.dataset.foco).scrollIntoView({behavior:"smooth",block:"center"});}
+  if(e.target.closest("[data-hoy]")){inicioVista=inicioDe(new Date());render();}
+});
+function filtrarEmpleados(){
+  const texto=($("buscar-empleado").value||"").toLocaleLowerCase("es-AR");
+  const estado=$("filtro-saldo").value||"todos";
+  // Los cálculos globales siempre incluyen a todo el personal.
+  const fichas=$("fichas").querySelectorAll ? $("fichas").querySelectorAll("[data-emp]") : [];
+  fichas.forEach(f=>{
+    const emp=datos.empleados.find(e=>e.id===f.dataset.emp);
+    const pagado=pagosDe(emp.id,inicioVista).reduce((a,p)=>a+p.monto,0);
+    const objetivo=objetivoDe(emp,claveSemana(inicioVista));
+    f.hidden=!(emp.nombre||"").toLocaleLowerCase("es-AR").includes(texto)||(estado==="pendientes"&&pagado>=objetivo)||(estado==="saldados"&&(!(objetivo>0)||pagado<objetivo));
+  });
+}
+$("buscar-empleado").addEventListener("input",filtrarEmpleados);
+$("filtro-saldo").addEventListener("change",filtrarEmpleados);
+try{$("operador").value=localStorage.getItem("avenida-operador")||"";}catch(e){}
+$("operador").addEventListener("change",e=>{try{localStorage.setItem("avenida-operador",e.target.value.trim());}catch(err){}});
+function celdaCSV(valor){
+  let texto=String(valor??"");
+  if(/^[=+@\-\t\r]/.test(texto)) texto="'"+texto;
+  return '"'+texto.replace(/"/g,'""')+'"';
+}
+$("b-movimientos").addEventListener("click",()=>{
+  const fechas=diasDe(inicioVista).map(iso);
+  const filas=[];
+  fechas.forEach(f=>TURNOS.forEach(([k,n])=>{if(datos.turnos[f]?.[k]!=null) filas.push([f,"Venta",n,datos.turnos[f][k],""]);}));
+  datos.pagos.filter(p=>fechas.includes(p.fecha)).forEach(p=>filas.push([p.fecha,"Pago",datos.empleados.find(e=>e.id===p.empId)?.nombre||"Empleado",p.monto,p.autor||""]));
+  gastosDe(inicioVista).forEach(g=>filas.push([g.fecha,"Gasto",g.concepto,g.monto,g.autor||""]));
+  filas.sort((a,b)=>a[0].localeCompare(b[0]));
+  filas.unshift(["Fecha","Tipo","Concepto","Monto","Cargado por"]);
+  bajar(`movimientos-${claveSemana(inicioVista)}.csv`,"\uFEFF"+filas.map(f=>f.map(celdaCSV).join(";")).join("\r\n"),"text/csv;charset=utf-8");
+});
+function iniciarDemo(){
+  if(!DEMO)return;
+  $("aviso-demo").hidden=false;
+  if(datos.empleados.length)return;
+  const semana=inicioDe(new Date()),fechas=diasDe(semana).map(iso);
+  datos.empleados=[{id:"demo-1",nombre:"Lucía",modo:"semana",monto:180000,extra:0,dias:TODOS_LOS_DIAS.slice()},{id:"demo-2",nombre:"Tomás",modo:"dia",monto:36000,extra:4000,dias:[0,2,3,4,5,6]},{id:"demo-3",nombre:"Sofía",modo:"semana",monto:155000,extra:0,dias:TODOS_LOS_DIAS.slice()},{id:"demo-4",nombre:"Mateo",modo:"semana",monto:140000,extra:0,dias:TODOS_LOS_DIAS.slice()}];
+  fechas.slice(0,3).forEach((f,i)=>{datos.turnos[f]={m:[183000,157000,204500][i],t:[142000,198500,171000][i]};});
+  datos.pagos=[{id:"demo-p1",empId:"demo-1",fecha:fechas[1],monto:180000,medio:"transferencia",autor:"Demo"},{id:"demo-p2",empId:"demo-2",fecha:fechas[1],monto:80000,medio:"efectivo",autor:"Demo"}];
+  datos.gastos=[{id:"demo-g1",fecha:fechas[1],concepto:"Harina e insumos · ejemplo",monto:86000,autor:"Demo"},{id:"demo-g2",fecha:fechas[2],concepto:"Servicio · ejemplo",monto:24000,autor:"Demo"}];
+}
+
 /* ============================================================
    ARRANQUE
    ============================================================ */
 
 cargar();
+iniciarDemo();
 cargarSinc();
 datos = normalizar(datos);
 guardar();          // detecta si el navegador bloquea el almacenamiento
