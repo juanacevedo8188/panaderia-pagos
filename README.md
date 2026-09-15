@@ -23,6 +23,9 @@ fecha de su domingo (`2026-09-13`).
   trabajados, que se marcan en la ficha semana por semana: hay gente que cubre
   turnos sueltos y no tiene días fijos.
 - Registro de cada entrega con fecha y medio (transferencia / efectivo).
+- Todo lo que se carga —pagos, turnos y costos— se imputa al día de hoy, pero se
+  puede elegir cualquier día de la semana que se está mirando: la caja del turno
+  tarde se carga muchas veces de madrugada, cuando "hoy" ya es el día siguiente.
 - La tarifa **se congela** al registrar el primer pago de la semana, así un
   aumento no reescribe el historial. Los días trabajados no se congelan: son un
   hecho de esa semana y se siguen marcando. Y un aumento cargado sobre una

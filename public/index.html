@@ -128,12 +128,22 @@ input,select,button{font:inherit;color:inherit}
 .mov .borrar:hover{color:var(--alerta)}
 .vacio{font-size:.82rem;color:var(--gris);padding:.3rem 0}
 
-.cargar{display:flex;gap:.4rem;margin-top:.7rem}
+.cargar{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.7rem}
 .cargar input{
   flex:1;min-width:0;border:1px solid var(--linea);border-radius:5px;
   padding:.5rem;font-variant-numeric:tabular-nums;
 }
-.cargar select{border:1px solid var(--linea);border-radius:5px;padding:.5rem;background:#fff}
+.cargar select{border:1px solid var(--linea);border-radius:5px;padding:.5rem .2rem;background:#fff;flex:0 0 auto}
+.cargar select.dia{color:var(--azulejo)}
+
+/* En el celular no entran monto + día + turno + botón en un renglón: el
+   monto se queda con el primero y el resto se reparte el segundo. */
+@media (max-width:520px){
+  .cargar input{flex:1 1 100%}
+  .cargar input.chico{flex:1 1 5rem}
+  .cargar select,
+  .cargar button{flex:1 1 auto}
+}
 .cargar button{
   background:var(--azulejo);color:#fff;border:none;border-radius:5px;
   padding:.5rem .8rem;cursor:pointer;font-weight:600;
@@ -516,6 +526,33 @@ function objetivoDe(emp, clave){
     : t.monto;
 }
 
+/* ============================================================
+   EL DÍA DE LO QUE SE CARGA
+   Por defecto es hoy, pero se puede elegir cualquier día de la
+   semana que se está mirando: la caja del turno tarde se carga
+   muchas veces de madrugada, cuando "hoy" ya es el día siguiente.
+   ============================================================ */
+
+function fechaSugerida(){
+  const hoy = new Date();
+  return claveSemana(inicioDe(hoy)) === claveSemana(inicioVista) ? iso(hoy) : iso(inicioVista);
+}
+
+function opcionesDia(elegido){
+  return diasDe(inicioVista).map(d => {
+    const f = iso(d);
+    return `<option value="${f}"${f === elegido ? " selected" : ""}>${DIAS[d.getDay()].slice(0,3)} ${d.getDate()}</option>`;
+  }).join("");
+}
+
+// al rehacer la caja se conserva el día elegido, así se puede cargar
+// varios días atrasados uno tras otro sin volver a elegirlo cada vez
+function diaElegido(id){
+  const el = $(id);
+  const semana = diasDe(inicioVista).map(iso);
+  return el && semana.includes(el.value) ? el.value : fechaSugerida();
+}
+
 function pieDe(e){
   const dias = Array.isArray(e.dias) ? e.dias : [];
   if (e.modo !== "dia") return `<b>${pesos(objetivoHabitual(e))}</b> por semana`;
@@ -588,7 +625,8 @@ function pintarFactura(){
     </div>
     <div class="cargar">
       <input type="number" id="fact-monto" placeholder="Monto" inputmode="decimal" min="0" step="1000">
-      <select id="fact-turno">${TURNOS.map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select>
+      <select id="fact-dia" class="dia" aria-label="Día">${opcionesDia(diaElegido("fact-dia"))}</select>
+      <select id="fact-turno" aria-label="Turno">${TURNOS.map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select>
       <button id="fact-guardar">Guardar</button>
     </div>`;
 }
@@ -618,6 +656,7 @@ function pintarCostos(){
     <div class="cargar">
       <input type="text" id="costo-concepto" placeholder="En qué" maxlength="40">
       <input type="number" id="costo-monto" class="chico" placeholder="Monto" inputmode="decimal" min="0" step="1000">
+      <select id="costo-dia" class="dia" aria-label="Día">${opcionesDia(diaElegido("costo-dia"))}</select>
       <button id="costo-guardar">Guardar</button>
     </div>`;
 }
@@ -647,9 +686,7 @@ function guardarCosto(){
   if (!concepto) return campoQue.focus();
   if (!(monto > 0)) return campoMonto.focus();
 
-  const clave = claveSemana(inicioVista);
-  const hoy = new Date();
-  const fecha = claveSemana(inicioDe(hoy)) === clave ? iso(hoy) : iso(inicioVista);
+  const fecha = $("costo-dia").value;
 
   op({ t:"gasto+", gasto:{ id:uid(), fecha, monto, concepto } });
   campoQue.value = ""; campoMonto.value = "";
@@ -675,9 +712,7 @@ function guardarTurno(){
   const monto = parseFloat(campo.value) || 0;
   if (!(monto > 0)) return;
 
-  const clave = claveSemana(inicioVista);
-  const hoy = new Date();
-  const fecha = claveSemana(inicioDe(hoy)) === clave ? iso(hoy) : iso(inicioVista);
+  const fecha = $("fact-dia").value;
 
   op({ t:"turno=", fecha, turno:$("fact-turno").value, valor:monto });
   campo.value = "";
@@ -782,10 +817,11 @@ function render(){
 
       <div class="cargar">
         <input type="number" data-monto placeholder="Monto" inputmode="decimal" min="0" step="1000">
-        <select data-medio>
+        <select data-medio aria-label="Medio de pago">
           <option>transferencia</option>
           <option>efectivo</option>
         </select>
+        <select data-fecha class="dia" aria-label="Día del pago">${opcionesDia(fechaSugerida())}</select>
         <button data-pagar>Registrar</button>
       </div>
       ${saldo > 0 ? `<div class="rapidos">
@@ -984,14 +1020,10 @@ function pintarMetricas(){
    ACCIONES
    ============================================================ */
 
-function registrar(empId, monto, medio){
+function registrar(empId, monto, medio, fecha){
   if (!(monto > 0)) return;
-  const clave = claveSemana(inicioVista);
-  congelar(clave);
-  // se imputa al día de hoy si la semana es la actual; si no, al domingo de esa semana
-  const hoy = new Date();
-  const fecha = claveSemana(inicioDe(hoy)) === clave ? iso(hoy) : iso(inicioVista);
-  op({ t:"pago+", pago:{ id:uid(), empId, fecha, monto, medio } });
+  congelar(claveSemana(inicioVista));
+  op({ t:"pago+", pago:{ id:uid(), empId, fecha:fecha || fechaSugerida(), monto, medio } });
   render();
 }
 
@@ -1002,11 +1034,13 @@ $("fichas").addEventListener("click", e => {
 
   if (e.target.matches("[data-pagar]")){
     const campo = ficha.querySelector("[data-monto]");
-    registrar(empId, parseFloat(campo.value), ficha.querySelector("[data-medio]").value);
+    registrar(empId, parseFloat(campo.value),
+      ficha.querySelector("[data-medio]").value, ficha.querySelector("[data-fecha]").value);
     campo.value = "";
   }
   if (e.target.matches("[data-rapido]")){
-    registrar(empId, parseFloat(e.target.dataset.rapido), ficha.querySelector("[data-medio]").value);
+    registrar(empId, parseFloat(e.target.dataset.rapido),
+      ficha.querySelector("[data-medio]").value, ficha.querySelector("[data-fecha]").value);
   }
   if (e.target.matches("[data-borrar]")){
     op({ t:"pago-", id:e.target.dataset.borrar });
