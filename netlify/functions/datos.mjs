@@ -64,6 +64,9 @@ return async (req) => {
     if (vActual !== version)
       return json({ error: "desfasado", version: vActual, datos: actual ? actual.datos : null }, 409);
 
+    // Una pestaña vieja no conoce facturación: conservarla en lugar de borrarla.
+    if (!Object.hasOwn(datos, 'facturacion') && actual?.datos?.facturacion)
+      datos.facturacion = actual.datos.facturacion;
     const nuevo = { version: vActual + 1, datos, fecha: new Date().toISOString() };
     // El ETag hace indivisible la comprobación y escritura en Blobs.
     if (lectura && !lectura.etag) return json({ error: "sin-etag" }, 503);

@@ -1304,6 +1304,11 @@ function guardarSinc(){
   } catch (e){ PERSISTE = false; }
 }
 
+function normalizarFacturacion(f){
+  f=f && typeof f==='object' ? f : {};
+  return {clientes:Array.isArray(f.clientes)?f.clientes:[],productos:Array.isArray(f.productos)?f.productos:[],borradores:Array.isArray(f.borradores)?f.borradores:[],emisor:f.emisor && typeof f.emisor==='object'?f.emisor:{}};
+}
+
 function normalizar(d){
   d = d || {};
   return migrar({
@@ -1313,6 +1318,7 @@ function normalizar(d){
     gastos:    Array.isArray(d.gastos)    ? d.gastos    : [],
     dias:      d.dias      && typeof d.dias      === "object" ? d.dias      : {},
     ventas:    d.ventas    && typeof d.ventas    === "object" ? d.ventas    : {},
+    facturacion: normalizarFacturacion(d.facturacion),
     objetivos: d.objetivos && typeof d.objetivos === "object" ? d.objetivos : {}
   });
 }
@@ -1352,6 +1358,20 @@ function migrar(d){
 
 function aplicar(d, o){
   switch (o.t){
+    case "fact=": {
+      const f=d.facturacion=normalizarFacturacion(d.facturacion);
+      if(o.coleccion==='emisor'){f.emisor=Object.assign({},o.valor);break;}
+      if(!['clientes','productos','borradores'].includes(o.coleccion)||!o.valor?.id)break;
+      const list=f[o.coleccion],value=JSON.parse(JSON.stringify(o.valor));
+      let i=list.findIndex(x=>x.id===value.id);
+      if(o.coleccion==='borradores' && i>=0 && list[i].revision!==o.base && list[i].revision!==value.revision){
+        value.id=value.id+'-conflicto-'+value.revision;
+        value.conflicto=true;
+        i=list.findIndex(x=>x.id===value.id);
+      }
+      if(i<0)list.unshift(value);else list[i]=value;
+      break;
+    }
     case "emp+":
       if (!d.empleados.some(e => e.id === o.emp.id)) d.empleados.push(Object.assign({}, o.emp));
       break;
@@ -1406,6 +1426,7 @@ function aplicar(d, o){
     case "todo=": {
       const n = normalizar(o.datos);
       d.empleados = n.empleados; d.pagos = n.pagos; d.turnos = n.turnos;
+      d.facturacion = o.datos.facturacion ? n.facturacion : normalizarFacturacion(d.facturacion);
       d.gastos = n.gastos; d.dias = n.dias; d.ventas = n.ventas; d.objetivos = n.objetivos;
       break;
     }
@@ -1584,6 +1605,7 @@ async function conectar(clave){
       "Si necesitás conservarlo, cancelá y descargá primero el respaldo.\n\n¿Conectamos igual?"))
       return pintarSinc("local");
 
+    const factLocal = normalizarFacturacion(datos.facturacion);
     sinc.clave = clave;
     sinc.pendientes = [];
     if (remoto.datos){
@@ -1591,6 +1613,13 @@ async function conectar(clave){
       sinc.version = remoto.version;
       guardar(); render();
       guardarSinc(); pintarSinc("ok");
+      // Conservar los borradores creados antes de conectar este dispositivo.
+      for(const coleccion of ['clientes','productos','borradores']){
+        for(const valor of factLocal[coleccion]){
+          if(!datos.facturacion[coleccion].some(x=>x.id===valor.id))op({t:'fact=',coleccion,valor});
+        }
+      }
+      if(!datos.facturacion.emisor.emisor && factLocal.emisor.emisor)op({t:'fact=',coleccion:'emisor',valor:factLocal.emisor});
     } else {
       sinc.version = remoto.version || 0;
       sinc.pendientes.push({ t:"todo=", datos:normalizar(datos) });
@@ -1848,6 +1877,13 @@ avisoPersistencia();
 render();
 arrancarPestanas();
 arrancarSinc();
+</script>
+<script>
+window.avenidaFacturacion={
+ leer:()=>JSON.parse(JSON.stringify(normalizarFacturacion(datos.facturacion))),
+ estado:()=>({conectado:!!sinc.clave,pendientes:sinc.pendientes.length,persiste:PERSISTE,demo:DEMO}),
+ guardar:(coleccion,valor,base)=>{op({t:'fact=',coleccion,valor,base});return PERSISTE;}
+};
 </script>
 <script type="module" src="/facturacion.js"></script>
 </body>

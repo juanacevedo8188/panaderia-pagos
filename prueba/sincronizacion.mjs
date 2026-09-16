@@ -389,4 +389,45 @@ console.log("19. carga durante una respuesta demorada: ok");
 
 console.log("\nTODO OK — " + peticiones.length + " llamadas al servidor, versión final " + servidor.version);
 
+
+
+// Facturación usa las mismas operaciones y resolución de conflictos de la planilla.
+{
+ const a=crearDispositivo('fact-a'),b=crearDispositivo('fact-b');
+ const base={empleados:[],pagos:[]};
+ const original=a.normalizar(base);
+ a.aplicar(original,{t:'fact=',coleccion:'clientes',valor:{id:'c1',cliente:'Cliente uno'}});
+ a.aplicar(original,{t:'fact=',coleccion:'productos',valor:{id:'p1',descripcion:'Pan'}});
+ const result=b.normalizar(JSON.parse(JSON.stringify(original)));
+ b.aplicar(result,{t:'fact=',coleccion:'clientes',valor:{id:'c2',cliente:'Cliente dos'}});
+ assert.equal(result.facturacion.clientes.length,2);
+ assert.equal(result.facturacion.productos.length,1);
+ const uno={t:'fact=',coleccion:'borradores',valor:{id:'b1',revision:'r1',cliente:'Inicial',items:[]}};
+ a.aplicar(result,uno);
+ a.aplicar(result,{t:'fact=',coleccion:'borradores',base:'r1',valor:{id:'b1',revision:'r2',cliente:'Primera edición',items:[]}});
+ const simultaneo={t:'fact=',coleccion:'borradores',base:'r1',valor:{id:'b1',revision:'r3',cliente:'Segunda edición',items:[]}};
+ a.aplicar(result,simultaneo);a.aplicar(result,simultaneo);
+ assert.equal(result.facturacion.borradores.length,2,'conservar ambos cambios e idempotencia');
+ assert.equal(result.facturacion.borradores.find(x=>x.id==='b1').cliente,'Primera edición');
+ a.aplicar(result,{t:'todo=',datos:{empleados:[],pagos:[]}});
+ assert.equal(result.facturacion.borradores.length,2,'restaurar copia antigua no borra facturación');
+ console.log('Facturación: normalización, operaciones aditivas, conflictos y respaldos antiguos: OK');
+}
+
+// Prueba real del protocolo simulado: dos dispositivos guardan a la vez.
+{
+ const a=crearDispositivo('shared-fact-a'),b=crearDispositivo('shared-fact-b');
+ a.op({t:'fact=',coleccion:'clientes',valor:{id:'cliente-local',cliente:'Local antes de conectar'}});
+ await a.conectar(CLAVE_OK);await esperar();
+ await b.conectar(CLAVE_OK);await esperar();
+ assert.ok(b.datos.facturacion.clientes.some(x=>x.id==='cliente-local'));
+ const pagosAntes=JSON.stringify(servidor.datos.pagos);
+ a.op({t:'fact=',coleccion:'clientes',valor:{id:'cliente-a',cliente:'Cliente A'}});
+ b.op({t:'fact=',coleccion:'productos',valor:{id:'producto-b',descripcion:'Pan'}});
+ await esperar();await esperar();await a.traer();await b.traer();
+ assert.ok(a.datos.facturacion.productos.some(x=>x.id==='producto-b'));
+ assert.ok(b.datos.facturacion.clientes.some(x=>x.id==='cliente-a'));
+ assert.equal(JSON.stringify(servidor.datos.pagos),pagosAntes);
+ console.log('Facturación: sincronización simultánea entre dos dispositivos, migración local y pagos intactos: OK');
+}
 process.exit(0);

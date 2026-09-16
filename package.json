@@ -8,6 +8,6 @@
     "@netlify/blobs": "^11.0.3"
   },
   "scripts": {
-    "test": "node prueba/sincronizacion.mjs && node prueba/funcion.mjs && node prueba/concurrencia.mjs && node prueba/pdf.mjs && node prueba/facturacion.mjs"
+    "test": "node prueba/sincronizacion.mjs && node prueba/funcion.mjs && node prueba/concurrencia.mjs && node prueba/pdf.mjs && node prueba/facturacion.mjs && node prueba/facturacion-backend.mjs"
   }
 }
