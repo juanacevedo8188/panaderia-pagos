@@ -14,7 +14,7 @@ import assert from "node:assert";
 // del <script> de la página, sin copiarlo, para que no se desfasen.
 const PAGINA = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const JS = PAGINA.match(/<script>([\s\S]*)<\/script>/)[1] +
-  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, inicioDe, congelar, registrar, ventasSemana, ventasDia, gastosDe, objetivoDe, objetivoHabitual, tarifaDe, diasTrabajados, descongelar, pagosDe, balanceSemana, resumenSemana, get inicioVista(){return inicioVista}, set inicioVista(v){inicioVista=v} };\n";
+  "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, inicioDe, congelar, registrar, ventasSemana, ventasDia, gastosDe, objetivoDe, objetivoHabitual, tarifaDe, diasTrabajados, descongelar, pagosDe, balanceSemana, resumenSemana, metricasDashboard, get inicioVista(){return inicioVista}, set inicioVista(v){inicioVista=v} };\n";
 
 // --- servidor de mentira ---
 let servidor = { version: 0, datos: null, fecha: null };
@@ -357,6 +357,18 @@ assert.equal(calculos.objetivoDe(calculos.datos.empleados[0],"2026-09-13"),10000
 assert.equal(calculos.objetivoDe(calculos.datos.empleados[0],"2026-09-20"),0);
 assert.equal(calculos.datos.pagos.length,1);
 console.log("18. saldos individuales, resultado y baja sin borrar historial: ok");
+calculos.inicioVista=inicio;
+calculos.datos.turnos["2026-09-08"]={m:250000,t:999999};
+const metricas=calculos.metricasDashboard(inicio);
+assert.equal(metricas.pares,1,"compara únicamente turnos cargados en ambas semanas");
+assert.equal(metricas.variacion,100,"500000 / 250000 - 1 = 100%");
+assert.equal(metricas.promedio,500000);
+assert.equal(metricas.avance,50,"exceso no aumenta la cobertura de otro empleado");
+assert.equal(metricas.pesoGastos,0);
+delete calculos.datos.turnos["2026-09-08"];
+assert.equal(calculos.metricasDashboard(inicio).variacion,null,"sin base no inventa variación");
+console.log("Dashboard: turnos comparables, promedio y cobertura individual: ok");
+
 
 /* 19. Un pago que llega mientras esperamos un PUT no desaparece de la cola. */
 await bauti.empujar();

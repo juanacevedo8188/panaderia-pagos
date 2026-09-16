@@ -1657,7 +1657,7 @@ $("pestanas").addEventListener("click", e => {
 function arrancarPestanas(){
   let guardada = null;
   try { guardada = localStorage.getItem(CLAVE_PANEL); } catch (e){}
-  verPanel(guardada || "inicio", false);
+  verPanel("inicio", false);
 }
 
 /* ============================================================
@@ -1707,6 +1707,49 @@ function balanceSemana(inicio){
     excedente:empleados.reduce((a,e) => a+e.excedente,0),
     resultado:ventas-objetivo-gastos };
 }
+function metricasDashboard(inicio){
+  const dias=diasDe(inicio), anterior=new Date(inicio);anterior.setDate(anterior.getDate()-7);
+  const prev=diasDe(anterior);let pares=0,actual=0,previo=0,manana=0,tarde=0,turnos=0;
+  dias.forEach((d,i)=>TURNOS.forEach(([k])=>{
+    const a=datos.turnos[iso(d)]?.[k], b=datos.turnos[iso(prev[i])]?.[k];
+    if(a!=null){turnos++;if(k==='m')manana+=a;else tarde+=a;}
+    if(a!=null&&b!=null){pares++;actual+=a;previo+=b;}
+  }));
+  const balance=balanceSemana(inicio);
+  const cubierto=balance.empleados.reduce((s,e)=>s+Math.min(e.objetivo,e.pagado),0);
+  return {pares,actual,previo,manana,tarde,turnos,
+    variacion:pares&&previo>0?(actual/previo-1)*100:null,
+    promedio:turnos?(manana+tarde)/turnos:null,
+    avance:balance.objetivo>0?cubierto/balance.objetivo*100:null,
+    pesoGastos:balance.ventas>0?balance.gastos/balance.ventas*100:null,
+    serie:semanasCon(6).map(s=>{
+      const b=balanceSemana(s.inicio), n=diasDe(s.inicio).reduce((a,d)=>a+TURNOS.filter(([k])=>datos.turnos[iso(d)]?.[k]!=null).length,0);
+      return {clave:s.clave,ventas:b.ventas,gastos:b.gastos,turnos:n,actividad:n>0||b.ventas>0||b.gastos>0||b.pagado>0};
+    })};
+}
+function panelMetricas(inicio){
+  const m=metricasDashboard(inicio),pct=n=>n===null?'Sin base':n.toFixed(1)+'%';
+  const total=m.manana+m.tarde;
+  const max=Math.max(1,...m.serie.map(s=>Math.max(s.ventas,s.gastos)));
+  const badge=(titulo,valor,nota,clase)=>`<article class="pulso ${clase}"><span>${titulo}</span><strong>${valor}</strong><small>${nota}</small></article>`;
+  return `<section class="dashboard-pulso"><div class="card-heading"><div><span class="eyebrow">INDICADORES PARA DECIDIR</span><h3>El pulso de Avenida</h3></div><span class="etiqueta">Semana seleccionada</span></div>
+  <div class="pulso-grid">
+  ${badge('Ventas vs. semana anterior',m.variacion===null?'Sin base':(m.variacion>0?'+':'')+pct(m.variacion),m.pares?`${m.pares} turnos equivalentes con datos en ambas semanas`:'Cargá los mismos turnos en ambas semanas para comparar','pulso-azul')}
+  ${badge('Promedio por turno',m.promedio===null?'Sin carga':pesos(m.promedio),`Ventas por turno ÷ ${m.turnos} turnos registrados`,'pulso-celeste')}
+  ${badge('Sueldos cubiertos',pct(m.avance),'Calculado por persona, sin compensar pagos de más','pulso-verde')}
+  ${badge('Gastos sobre ventas',pct(m.pesoGastos),'Gastos registrados ÷ ventas; excluye sueldos','pulso-ambar')}
+  </div></section>
+  <div class="tablero-grid"><section class="panel-card evolucion"><div class="card-heading"><div><span class="eyebrow">PERSPECTIVA</span><h3>Las últimas seis semanas</h3></div></div><div class="leyenda"><i></i>Ventas <i class="serie-gasto"></i>Gastos</div>
+  <div class="evolucion-filas">${m.serie.map(s=>`<div class="evolucion-fila"><div class="evolucion-fecha"><b>${s.clave.slice(8)}/${s.clave.slice(5,7)}</b><small>${s.actividad?s.turnos+' turnos':'Sin carga'}</small></div><div class="evolucion-barras" aria-label="Ventas y gastos de la semana ${s.clave}"><i style="width:${s.ventas/max*100}%"></i><i class="serie-gasto" style="width:${s.gastos/max*100}%"></i></div><div class="evolucion-importes"><b>${s.actividad?pesos(s.ventas):'—'}</b><small>${s.actividad?pesos(s.gastos):'—'}</small></div></div>`).join('')}</div>
+  <p class="ayuda">Importes nominales registrados. Una semana con cargas parciales no equivale a una semana cerrada. Sin carga no significa cero ventas.</p></section>
+  <section class="panel-card turnos-reparto"><div class="card-heading"><div><span class="eyebrow">DOS MOMENTOS DEL DÍA</span><h3>¿Cuándo vendemos más?</h3></div></div>
+  <div class="turno-grande"><span>☀ Mañana</span><strong>${pesos(m.manana)}</strong><small>${total?pct(m.manana/total*100):'Sin ventas por turno'}</small></div>
+  <div class="reparto-barra" aria-label="Participación de ventas de mañana y tarde"><i style="width:${total?m.manana/total*100:0}%"></i></div>
+  <div class="turno-grande"><span>◐ Tarde</span><strong>${pesos(m.tarde)}</strong><small>${total?pct(m.tarde/total*100):'Sin ventas por turno'}</small></div>
+  <p class="ayuda">Participación sobre los turnos cargados. No incluye totales históricos sin detalle por turno.</p>
+  <div class="avance-pagos"><span>Avance de pagos</span><strong>${pct(m.avance)}</strong><div class="barra"><i style="width:${m.avance||0}%"></i></div></div></section></div>`;
+}
+
 function pintarInicio(){
   const b = balanceSemana(inicioVista);
   const dias = diasDe(inicioVista);
@@ -1718,7 +1761,7 @@ function pintarInicio(){
   const sinActividad = !cargados && !b.ventas && !b.pagado && !b.gastos;
   const tarjeta = (titulo, valor, detalle, clase="") => `<div class="kpi ${clase}"><span>${titulo}</span><strong>${valor}</strong><small>${detalle}</small></div>`;
   $("inicio-contenido").innerHTML = `
-    <div class="bienvenida"><div><div class="eyebrow">EL NEGOCIO, DE UN VISTAZO</div><h2>Todo en orden.<br><em>Una semana a la vez.</em></h2><p>Ventas, equipo y gastos en un solo lugar.</p></div><div class="sello"><span>AVENIDA</span><b>Hecho<br>cada día.</b><span>CONTROL SEMANAL</span></div></div>
+    <div class="bienvenida"><div><div class="eyebrow">EL NEGOCIO, DE UN VISTAZO</div><h2>Tu panadería.<br><em>Todos los números, a mano.</em></h2><p>Un tablero para seguir las ventas, cuidar los gastos y organizar al equipo.</p></div><div class="sello"><span>AVENIDA</span><b>Hecho<br>cada día.</b><span>CONTROL SEMANAL</span></div></div>
     <div class="atajos"><button data-abrir="caja">＋ Cargar venta</button><button data-abrir="sueldos">↗ Registrar pago</button><button data-abrir="caja" data-foco="costos">＋ Cargar gasto</button><button data-hoy>Volver a esta semana</button></div>
     <div class="kpis">
       ${tarjeta("Ventas registradas",pesos(b.ventas),`${cargados} de 14 turnos con importe`,"destacada")}
@@ -1726,6 +1769,7 @@ function pintarInicio(){
       ${tarjeta("Gastos registrados",pesos(b.gastos),"Además de los sueldos")}
       ${tarjeta("Sueldos previstos",pesos(b.objetivo),"Según tarifas y días marcados")}
     </div>
+    ${panelMetricas(inicioVista)}
     <div class="tablero-grid"><section class="panel-card ventas-card"><div class="card-heading"><div><span class="eyebrow">RITMO DE LA SEMANA</span><h3>Ventas por día</h3></div><span class="etiqueta">${enCurso ? "En curso" : "Semana seleccionada"}</span></div>
       <div class="leyenda"><i></i>Mañana <i class="tarde"></i>Tarde <span>Sin carga ≠ venta cero</span></div>
       <div class="barras-semana" role="img" aria-label="Ventas por día de domingo a sábado; detalle en la tabla inferior">
