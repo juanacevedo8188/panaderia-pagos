@@ -295,6 +295,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
 </style>
 <link rel="stylesheet" href="/avenida.css">
 <meta name="theme-color" content="#353D68">
+<link rel="stylesheet" href="/facturacion.css">
 </head>
 <body>
 
@@ -318,6 +319,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
     <button role="tab" data-ir="caja"      id="tab-caja"      aria-controls="panel-caja">Caja</button>
     <button role="tab" data-ir="numeros"   id="tab-numeros"   aria-controls="panel-numeros">Números</button>
     <button role="tab" data-ir="ajustes"   id="tab-ajustes"   aria-controls="panel-ajustes">Ajustes</button>
+    <button role="tab" data-ir="herramientas" id="tab-herramientas" aria-controls="panel-herramientas">Herramientas</button>
   </nav>
 </div>
 
@@ -372,6 +374,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--azulejo);o
   </section>
   </div>
 
+  <div class="panel" id="panel-herramientas" role="tabpanel" aria-labelledby="tab-herramientas" hidden><div id="facturacion-app"></div></div>
   <div class="panel" id="panel-ajustes" role="tabpanel" aria-labelledby="tab-ajustes">
   <section class="seccion">
     <h2>Plantel</h2>
@@ -1631,7 +1634,7 @@ window.addEventListener("online", () => { if (sinc.clave) sincronizar(); });
    ============================================================ */
 
 const CLAVE_PANEL = "panaderia-panel-v1";
-const PANELES = ["inicio", "sueldos", "caja", "numeros", "ajustes"];
+const PANELES = ["inicio", "sueldos", "caja", "numeros", "ajustes", "herramientas"];
 
 function verPanel(cual, mover = true){
   if (!PANELES.includes(cual)) cual = PANELES[0];
@@ -1846,5 +1849,6 @@ render();
 arrancarPestanas();
 arrancarSinc();
 </script>
+<script type="module" src="/facturacion.js"></script>
 </body>
 </html>

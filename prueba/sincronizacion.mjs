@@ -13,7 +13,7 @@ import assert from "node:assert";
 // Se prueba el mismo JavaScript que corre en el navegador: se lo saca
 // del <script> de la página, sin copiarlo, para que no se desfasen.
 const PAGINA = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-const JS = PAGINA.match(/<script>([\s\S]*)<\/script>/)[1] +
+const JS = PAGINA.match(/<script>([\s\S]*?)<\/script>/)[1] +
   "\nglobalThis.__t = { get datos(){return datos}, set datos(v){datos=v}, sinc, op, aplicar, normalizar, empujar, traer, conectar, desconectar, uid, claveSemana, inicioDe, congelar, registrar, ventasSemana, ventasDia, gastosDe, objetivoDe, objetivoHabitual, tarifaDe, diasTrabajados, descongelar, pagosDe, balanceSemana, resumenSemana, metricasDashboard, get inicioVista(){return inicioVista}, set inicioVista(v){inicioVista=v} };\n";
 
 // --- servidor de mentira ---

@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {calcular,decimal} from '../public/facturacion-core.js';
+import {crearBorradorPDF} from '../public/facturacion-pdf.js';
+const items=[{descripcion:'Facturas',cantidad:'2',medida:'Docenas',precio:'9000'},{descripcion:'Pan',cantidad:'1,5',medida:'Kg',precio:'3000'}];
+assert.equal(calcular(items).total,22500);
+assert.equal(calcular([{descripcion:'Fracción',cantidad:'0,125',medida:'Kg',precio:'10,04'}]).total,1.26);
+for(const value of ['1.000,50','-1','Infinity','1e4','','1,234,5'])assert.throws(()=>decimal(value));
+assert.throws(()=>calcular([{...items[0],cantidad:'0'}]));
+assert.throws(()=>calcular([{...items[0],precio:'0'}]));
+assert.throws(()=>calcular([{...items[0],descripcion:''}]));
+assert.throws(()=>calcular([{...items[0],medida:'inventada'}]));
+const a={emisor:'Emisor de prueba',cuitEmisor:'',domicilioEmisor:'Domicilio de prueba',fecha:'2026-09-16',cliente:'Cliente de prueba',documento:'',domicilio:'',condicion:'Consumidor final',venta:'Contado',items};
+const bytes=crearBorradorPDF(a);const text=Buffer.from(bytes).toString('latin1');
+assert.ok(text.startsWith('%PDF-1.4'));
+assert.ok(text.includes('SIN VALIDEZ FISCAL'));
+assert.ok(text.includes('22.500'));
+console.log('OK: unidades mixtas, decimales, redondeo por renglón, validación y borrador PDF');
