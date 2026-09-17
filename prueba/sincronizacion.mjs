@@ -430,4 +430,20 @@ console.log("\nTODO OK — " + peticiones.length + " llamadas al servidor, versi
  assert.equal(JSON.stringify(servidor.datos.pagos),pagosAntes);
  console.log('Facturación: sincronización simultánea entre dos dispositivos, migración local y pagos intactos: OK');
 }
+// Categorizar un gasto solo modifica ese campo y se sincroniza.
+{
+ const a=crearDispositivo('categoria-a'),b=crearDispositivo('categoria-b');
+ await a.conectar(CLAVE_OK);await b.conectar(CLAVE_OK);
+ a.op({t:'gasto+',gasto:{id:'categoria-test',fecha:'2026-09-16',concepto:'Costo anterior',monto:12500}});
+ await a.empujar();await b.traer();
+ b.op({t:'gasto-categoria=',id:'categoria-test',categoria:'personal'});
+ a.op({t:'gasto+',gasto:{id:'categoria-otro',fecha:'2026-09-16',concepto:'Harina',monto:30000,categoria:'comercial'}});
+ await b.empujar();await a.empujar();await b.traer();
+ const g=b.datos.gastos.find(x=>x.id==='categoria-test');
+ assert.equal(g.categoria,'personal');assert.equal(g.monto,12500);assert.equal(g.concepto,'Costo anterior');
+ assert.ok(b.datos.gastos.some(x=>x.id==='categoria-otro'));
+ b.aplicar(b.datos,{t:'gasto-categoria=',id:'categoria-test',categoria:'invalida'});
+ assert.equal(g.categoria,'personal');
+ console.log('Categorías: clasificación sincronizada, importes intactos y cambios concurrentes preservados: OK');
+}
 process.exit(0);

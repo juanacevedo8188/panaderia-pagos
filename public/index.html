@@ -648,25 +648,42 @@ function gastosDe(inicio){
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 
+const CATEGORIAS_COSTO = {comercial:'Comercial — Panadería',personal:'Personal',sin_clasificar:'Sin clasificar'};
+const categoriaCosto = g => Object.hasOwn(CATEGORIAS_COSTO,g.categoria) ? g.categoria : 'sin_clasificar';
+function opcionesCategoriaCosto(valor, nueva=false){
+ return (nueva?'<option value="">Elegí categoría</option>':'') + Object.entries(CATEGORIAS_COSTO).map(([k,v])=>`<option value="${k}" ${k===valor?'selected':''}>${v}</option>`).join('');
+}
+function resumenCostos(lista){
+ const total=lista.reduce((a,g)=>a+g.monto,0);
+ return Object.entries(CATEGORIAS_COSTO).map(([id,nombre])=>{
+  const monto=lista.filter(g=>categoriaCosto(g)===id).reduce((a,g)=>a+g.monto,0);
+  return {id,nombre,monto,porcentaje:total>0?monto/total*100:null};
+ });
+}
+
 function pintarCostos(){
   const lista = gastosDe(inicioVista);
   const total = lista.reduce((a, g) => a + g.monto, 0);
+  const elegida = $("costo-categoria")?.value || "";
 
   $("costos").innerHTML = `
     <div class="total"><span>Costos de la semana</span><b class="num">${pesos(total)}</b></div>
+    <div class="costos-grupos">${resumenCostos(lista).map(x=>`<div><span>${x.nombre}</span><strong>${pesos(x.monto)}</strong><small>${x.porcentaje===null?'Sin costos':x.porcentaje.toLocaleString('es-AR',{maximumFractionDigits:1})+'% del total'}</small></div>`).join('')}</div>
+    <p class="ayuda">Porcentajes sobre los costos registrados de esta semana, sin sueldos. Podés clasificar los anteriores con el selector de cada gasto. Los porcentajes se redondean.</p>
     <div class="movimientos">
       ${lista.length ? lista.map(g => `
         <div class="mov">
           <span class="fecha">${desdeISO(g.fecha).toLocaleDateString("es-AR",{weekday:"short",day:"numeric"})}</span>
-          <span class="concepto">${limpio(g.concepto)}${g.autor ? " · " + limpio(g.autor) : ""}</span>
+          <span class="concepto">${limpio(g.concepto)}${g.autor ? " · " + limpio(g.autor) : ""}<label class="clasificar-costo">Categoría<select data-categoria-gasto="${limpio(g.id)}" aria-label="Categoría de ${limpio(g.concepto)}">${opcionesCategoriaCosto(categoriaCosto(g))}</select></label></span>
           <span class="monto">${pesos(g.monto)}</span>
           <button class="borrar" data-gasto="${g.id}" aria-label="Borrar ${limpio(g.concepto)}">×</button>
         </div>`).join("") : `<div class="vacio">Sin costos cargados esta semana.</div>`}
     </div>
-    <div class="cargar">
+    <div class="cargar cargar-costo">
       <input type="text" id="costo-concepto" placeholder="En qué" maxlength="40">
       <input type="number" id="costo-monto" class="chico" placeholder="Monto" inputmode="decimal" min="0" step="1000">
       <select id="costo-dia" class="dia" aria-label="Día">${opcionesDia(diaElegido("costo-dia"))}</select>
+      <select id="costo-categoria" aria-label="Categoría del nuevo costo">${opcionesCategoriaCosto(elegida,true)}</select>
       <button id="costo-guardar">Guardar</button>
     </div>`;
 }
@@ -681,7 +698,7 @@ function pintarNeto(){
   const neto = facturacion - sueldos - costos;
 
   $("neto").innerHTML = `
-    <p class="ayuda">Ventas cargadas menos sueldos previstos y gastos registrados. No es el saldo de caja ni un resultado contable definitivo.</p><div class="linea"><span>Facturación</span><b>${pesos(facturacion)}</b></div>
+    <p class="ayuda">Ventas cargadas menos sueldos previstos y gastos registrados. Incluye también los costos personales y sin clasificar. No es el saldo de caja ni un resultado contable definitivo.</p><div class="linea"><span>Facturación</span><b>${pesos(facturacion)}</b></div>
     <div class="linea resta"><span>Sueldos de la semana</span><b>−${pesos(sueldos)}</b></div>
     <div class="linea resta"><span>Costos generales</span><b>−${pesos(costos)}</b></div>
     <div class="linea final ${neto >= 0 ? "bien" : "mal"}">
@@ -697,8 +714,9 @@ function guardarCosto(){
   if (!(Number.isFinite(monto) && monto > 0)) return campoMonto.focus();
 
   const fecha = $("costo-dia").value;
-
-  op({ t:"gasto+", gasto:{ id:uid(), fecha, monto, concepto } });
+  const categoria = $("costo-categoria").value;
+  if(!Object.hasOwn(CATEGORIAS_COSTO,categoria)){ $("costo-categoria").focus(); return; }
+  op({ t:"gasto+", gasto:{ id:uid(), fecha, monto, concepto, categoria } });
   campoQue.value = ""; campoMonto.value = "";
   pintarCostos(); pintarNeto(); pintarMetricas();
   $("costo-concepto").focus();
@@ -711,6 +729,16 @@ $("costos").addEventListener("click", e => {
     op({ t:"gasto-", id:e.target.dataset.gasto });
     pintarCostos(); pintarNeto(); pintarMetricas();
   }
+});
+
+$("costos").addEventListener("change", e => {
+ const id=e.target.dataset.categoriaGasto;
+ if(!id || !Object.hasOwn(CATEGORIAS_COSTO,e.target.value))return;
+ const campos=['costo-concepto','costo-monto','costo-dia','costo-categoria'];
+ const borrador=campos.map(k=>$(k).value);
+ op({t:'gasto-categoria=',id,categoria:e.target.value});
+ pintarCostos();
+ campos.forEach((k,i)=>$(k).value=borrador[i]);
 });
 
 $("costos").addEventListener("keydown", e => {
@@ -1397,6 +1425,11 @@ function aplicar(d, o){
     case "gasto+":
       if (!d.gastos.some(g => g.id === o.gasto.id)) d.gastos.push(Object.assign({}, o.gasto));
       break;
+    case "gasto-categoria=": {
+      const gasto=d.gastos.find(g=>g.id===o.id);
+      if(gasto && Object.hasOwn(CATEGORIAS_COSTO,o.categoria))gasto.categoria=o.categoria;
+      break;
+    }
     case "gasto-":
       d.gastos = d.gastos.filter(g => g.id !== o.id);
       break;

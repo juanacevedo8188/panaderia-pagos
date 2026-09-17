@@ -16,6 +16,15 @@ function envolver(texto,max){
   }
   return lineas;
 }
+export function agruparCostos(gastos){
+ const categorias=[['comercial','Comercial - Panaderia'],['personal','Personal'],['sin_clasificar','Sin clasificar']];
+ const total=gastos.reduce((n,g)=>n+g.monto,0);
+ return categorias.map(([id,nombre])=>{
+  const registros=gastos.filter(g=>(['comercial','personal'].includes(g.categoria)?g.categoria:'sin_clasificar')===id);
+  const monto=registros.reduce((n,g)=>n+g.monto,0);
+  return {id,nombre,registros,monto,porcentaje:total>0?monto/total*100:null};
+ });
+}
 export function crearInformePDF(informe){
   const pages=[];let ops=[],y=0;
   const W=595.28,H=841.89,M=40,ancho=W-2*M;
@@ -59,6 +68,12 @@ export function crearInformePDF(informe){
     ['Gastos registrados',dinero(costos)],['Resultado estimado',dinero(ventas-sueldos-costos)]
   ],[360,ancho-360]);
   parrafo('Resultado estimado = ventas registradas - sueldos previstos - gastos. Incluye sueldos de toda la semana; no representa efectivo disponible ni ganancia contable definitiva. Las cargas pueden estar incompletas.');
+  const grupos=agruparCostos(g);
+  const porcentaje=n=>n===null?'Sin costos':n.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+  titulo('Costos por categoria');
+  tabla(['Categoria','Importe','% de costos'],grupos.map(x=>[x.nombre,dinero(x.monto),porcentaje(x.porcentaje)]),[255,140,ancho-395]);
+  parrafo('Porcentaje = costo de la categoria / total de costos registrados x 100. Corresponde a esta semana, excluye sueldos y puede presentar diferencias por redondeo.');
+  parrafo('Sin clasificar incluye los registros anteriores sin categoria. El resultado estimado descuenta todos los costos, incluidos los personales y sin clasificar.');
   titulo('Personal: previsto, entregado y pendiente');
   tabla(['Empleado','Previsto','Entregado','Pendiente','Excedente'],e.map(x=>[x.nombre,dinero(x.objetivo),dinero(x.pagado),dinero(x.pendiente),dinero(x.excedente)]),[155,90,90,90,ancho-425]);
   titulo('Detalle de pagos');
@@ -66,8 +81,12 @@ export function crearInformePDF(informe){
   titulo('Ventas por dia y turno');
   tabla(['Fecha','Manana','Tarde','Total'],v.map(x=>[x.fecha,x.m==null?'Sin carga':dinero(x.m),x.t==null?'Sin carga':dinero(x.t),x.m==null&&x.t==null?'Sin carga':dinero((x.m||0)+(x.t||0))]),[110,135,135,ancho-380]);
   if(informe.ventasManual)parrafo('Esta semana usa un total historico cargado manualmente, sin detalle por turno.');
-  titulo('Detalle de gastos');
-  tabla(['Fecha','Concepto','Operador','Importe'],g.map(x=>[x.fecha,x.concepto,x.autor||'-',dinero(x.monto)]),[78,230,110,ancho-418]);
+  for(const grupo of grupos){
+    if(!grupo.registros.length)continue;
+    titulo('Gastos: '+grupo.nombre);
+    parrafo('Subtotal: '+dinero(grupo.monto)+' | '+porcentaje(grupo.porcentaje)+' del total de costos');
+    tabla(['Fecha','Concepto','Operador','Importe'],grupo.registros.map(x=>[x.fecha,x.concepto,x.autor||'-',dinero(x.monto)]),[78,230,110,ancho-418]);
+  }
   parrafo('Control interno. No reemplaza recibos de sueldo ni comprobantes. Para restaurar la planilla completa, conserve el respaldo JSON.');
   pages.push(ops);
   pages.forEach((page,i)=>page.push(`BT /F1 8 Tf 0.45 0.48 0.55 rg 1 0 0 1 40 28 Tm (Avenida | ${literal(informe.semana)} | Pagina ${i+1} de ${pages.length}) Tj ET`));
